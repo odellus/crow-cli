@@ -13,7 +13,6 @@ import asyncio
 import os
 import uuid
 from contextlib import AsyncExitStack, suppress
-
 from datetime import datetime
 from pathlib import Path
 from threading import ExceptHookArgs
@@ -60,16 +59,11 @@ from acp.schema import (
     ToolCallProgress,
     ToolCallStart,
 )
+from fastmcp import Client as MCPClient
+from json_schema_to_pydantic import create_model
 from sqlalchemy.engine.cursor import ResultProxy
 
 from crow_acp import mcp_client
-
-
-import os
-
-from fastmcp import Client as MCPClient
-from json_schema_to_pydantic import create_model
-
 from crow_acp.config import Config, get_default_config, settings
 from crow_acp.context import context_fetcher, get_directory_tree, maximal_deserialize
 from crow_acp.llm import configure_llm
@@ -131,7 +125,7 @@ class AcpAgent(Agent):
         self._tool_call_ids: dict[
             str, str
         ] = {}  # session_id -> persistent terminal_id for stateful terminals
-        # Terminal state tracking for ACP client terminals (persist env/cwd between calls)
+        self._prompt_tasks: dict[str, asyncio.Task] = {}
         self._llm = configure_llm(debug=False)
 
     def on_connect(self, conn: Client) -> None:
@@ -250,8 +244,8 @@ class AcpAgent(Agent):
     async def load_session(
         self,
         cwd: str,
-        mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio],
         session_id: str,
+        mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio],
         **kwargs: Any,
     ) -> LoadSessionResponse | None:
         """Load an existing session with proper resource management."""
@@ -321,115 +315,127 @@ class AcpAgent(Agent):
         """
         logger.info("Prompt request for session: %s", session_id)
 
-        # Generate turn ID for this prompt (used for ACP tool call IDs)
-        turn_id = str(uuid.uuid4())
+        async def _execute_turn() -> PromptResponse:
+            # Generate turn ID for this prompt (used for ACP tool call IDs)
+            turn_id = str(uuid.uuid4())
 
-        # Get session
-        session = self._sessions.get(session_id)
-        if not session:
-            logger.error("Session not found: %s", session_id)
-            return PromptResponse(stop_reason="cancelled")
+            # Get session
+            session = self._sessions.get(session_id)
+            if not session:
+                logger.error("Session not found: %s", session_id)
+                return PromptResponse(stop_reason="cancelled")
 
-        # Extract text from prompt blocks
-        text_list = []
-        for block in prompt:
-            _type = (
-                block.get("type", "")
-                if isinstance(block, dict)
-                else getattr(block, "type", "")
-            )
-            if _type == "text":
-                text = (
-                    block.get("text", "")
+            # Extract text from prompt blocks
+            text_list = []
+            for block in prompt:
+                _type = (
+                    block.get("type", "")
                     if isinstance(block, dict)
-                    else getattr(block, "text", "")
+                    else getattr(block, "type", "")
                 )
-                text_list.append(text)
-            elif _type == "resource_link":
-                logger.info(f"block type: {type(block)}")
-                uri = (
-                    block.get("uri", "")
-                    if isinstance(block, dict)
-                    else getattr(block, "uri", "")
-                )
-                text_list.append(context_fetcher(uri))
+                if _type == "text":
+                    text = (
+                        block.get("text", "")
+                        if isinstance(block, dict)
+                        else getattr(block, "text", "")
+                    )
+                    text_list.append(text)
+                elif _type == "resource_link":
+                    logger.info(f"block type: {type(block)}")
+                    uri = (
+                        block.get("uri", "")
+                        if isinstance(block, dict)
+                        else getattr(block, "uri", "")
+                    )
+                    text_list.append(context_fetcher(uri))
 
-        # Add user message to session
-        session.add_message("user", " ".join(text_list))
+            # Add user message to session
+            session.add_message("user", " ".join(text_list))
 
-        # Clear cancel event for this new prompt
-        cancel_event = self._cancel_events.get(session_id)
-        if cancel_event:
-            cancel_event.clear()
+            # Clear cancel event for this new prompt
+            cancel_event = self._cancel_events.get(session_id)
+            if cancel_event:
+                cancel_event.clear()
 
-        # Initialize state accumulator for this prompt (for cancellation persistence)
-        self._state_accumulators[session_id] = {
-            "thinking": [],
-            "content": [],
-            "tool_call_inputs": [],
-        }
+            # Initialize state accumulator for this prompt (for cancellation persistence)
+            self._state_accumulators[session_id] = {
+                "thinking": [],
+                "content": [],
+                "tool_call_inputs": [],
+            }
 
-        tools = self._tools[session_id]
+            tools = self._tools[session_id]
 
-        # Stream chunks directly from react_loop - no queue, no latency
+            # Stream chunks directly from react_loop - no queue, no latency
+            try:
+                async for chunk in react_loop(
+                    conn=self._conn,
+                    config=self._config,
+                    client_capabilities=self._client_capabilities,
+                    turn_id=turn_id,
+                    mcp_clients=self._mcp_clients,
+                    llm=self._llm,
+                    model="glm-5",
+                    tools=tools,
+                    sessions=self._sessions,
+                    cancel_event=self._cancel_events[session_id],
+                    session_id=session_id,
+                    state_accumulators=self._state_accumulators,
+                ):
+                    chunk_type = chunk.get("type")
+
+                    if chunk_type == "content":
+                        await self._conn.session_update(
+                            session_id,
+                            update_agent_message(text_block(chunk["token"])),
+                        )
+
+                    elif chunk_type == "thinking":
+                        await self._conn.session_update(
+                            session_id,
+                            update_agent_thought(text_block(chunk["token"])),
+                        )
+
+                    elif chunk_type == "tool_call":
+                        name, first_arg = chunk["token"]
+                        logger.debug("Tool call: %s(%s", name, first_arg)
+
+                    elif chunk_type == "tool_args":
+                        logger.debug("Tool args: %s", chunk["token"])
+
+                    elif chunk_type == "final_history":
+                        break
+
+                return PromptResponse(stop_reason="end_turn")
+
+            except asyncio.CancelledError:
+                logger.info("Prompt cancelled")
+                # State is already persisted by react_loop's cancellation handler
+                raise
+
+        task = asyncio.create_task(_execute_turn())
+        self._prompt_tasks[session_id] = task
+
+        # 3. Await the task and handle the cancellation at the top level
         try:
-            async for chunk in react_loop(
-                conn=self._conn,
-                config=self._config,
-                client_capabilities=self._client_capabilities,
-                turn_id=turn_id,
-                mcp_clients=self._mcp_clients,
-                llm=self._llm,
-                model="glm-5",
-                tools=tools,
-                sessions=self._sessions,
-                cancel_event=self._cancel_events[session_id],
-                session_id=session_id,
-                state_accumulators=self._state_accumulators,
-            ):
-                chunk_type = chunk.get("type")
-
-                if chunk_type == "content":
-                    await self._conn.session_update(
-                        session_id,
-                        update_agent_message(text_block(chunk["token"])),
-                    )
-
-                elif chunk_type == "thinking":
-                    await self._conn.session_update(
-                        session_id,
-                        update_agent_thought(text_block(chunk["token"])),
-                    )
-
-                elif chunk_type == "tool_call":
-                    name, first_arg = chunk["token"]
-                    logger.debug("Tool call: %s(%s", name, first_arg)
-
-                elif chunk_type == "tool_args":
-                    logger.debug("Tool args: %s", chunk["token"])
-
-                elif chunk_type == "final_history":
-                    break
-
-            return PromptResponse(stop_reason="end_turn")
-
+            return await task
         except asyncio.CancelledError:
-            logger.info("Prompt cancelled")
-            # State is already persisted by react_loop's cancellation handler
+            logger.info("Prompt gracefully stopped due to client cancellation")
             return PromptResponse(stop_reason="cancelled")
-
         except Exception as e:
             logger.error("Error in prompt handling: %s", e, exc_info=True)
             return PromptResponse(stop_reason="end_turn")
+        finally:
+            # 4. Cleanup the task reference when done
+            self._prompt_tasks.pop(session_id, None)
 
     async def cancel(self, session_id: str, **kwargs: Any) -> None:
-        """Handle cancellation by setting the cancel event."""
+        """Handle cancellation by immediately cancelling the underlying Task."""
         logger.info("Cancel request for session: %s", session_id)
 
-        # Set the cancel event - react_loop checks this at each turn boundary
-        cancel_event = self._cancel_events.get(session_id)
-        if cancel_event:
-            cancel_event.set()
+        task = self._prompt_tasks.get(session_id)
+        if task and not task.done():
+            task.cancel()  # <--- This forcefully interrupts the LLM stream!
 
     async def ext_method(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Handle extension methods"""
