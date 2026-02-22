@@ -83,3 +83,9 @@ AttributeError: 'WaitForTerminalExitResponse' object has no attribute 'exit_stat
 2026-02-20 22:21:25,932 - __main__ - INFO - Exit response: field_meta=None exit_code=0 signal=None
 2026-02-20 22:21:25,932 - __main__ - INFO - Terminal exited with exit code: 0
 and signal: None
+2026-02-22 07:22:41,058 - __main__ - INFO - Starting TerminalAgent
+2026-02-22 07:22:41,058 - __main__ - INFO - Initializing TerminalAgent
+2026-02-22 07:22:41,059 - __main__ - INFO - Client capabilities: field_meta={'terminal_output': True, 'terminal-auth': True} fs=FileSystemCapability(field_meta=None, read_text_file=True, write_text_file=True) terminal=True
+2026-02-22 07:22:41,059 - __main__ - INFO - Client info: field_meta=None name='zed' title='Zed' version='0.224.11+stable.175.e4cabf49a18ed03969d84ee15643e9ec81857e97'
+2026-02-22 07:22:41,059 - __main__ - INFO - Client supports ACP terminals!
+2026-02-22 07:22:41,060 - __main__ - INFO - Created session b71b8f96f6574ad1b152a5455c1e0bc5 with cwd=/home/thomas/src/nid

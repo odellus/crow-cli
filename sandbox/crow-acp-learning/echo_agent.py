@@ -26,6 +26,7 @@ from acp.schema import (
     Implementation,
     McpServerStdio,
     ResourceContentBlock,
+    SessionConfigOption,
     SseMcpServer,
     TextContentBlock,
 )
@@ -64,7 +65,25 @@ class EchoAgent(Agent):
         session_id = uuid4().hex
         # Create cancel event for this session
         self._cancel_events[session_id] = asyncio.Event()
-        return NewSessionResponse(session_id=session_id)
+        session_config_options = SessionConfigOption(
+            dict(
+                id="model",
+                name="Model",
+                category="model",
+                type="select",
+                currentValue="google/gemini-3.1-pro-preview",
+                options=[
+                    dict(
+                        value="google/gemini-3.1-pro-preview",
+                        name="google/gemini-3.1-pro-preview",
+                        description="good model",
+                    )
+                ],
+            )
+        )
+        return NewSessionResponse(
+            session_id=session_id, config_options=[session_config_options]
+        )
 
     async def prompt(
         self,
@@ -85,10 +104,7 @@ class EchoAgent(Agent):
         logging.info(f"Starting 30 second delay for session {session_id}")
         try:
             # Use wait_for to allow cancellation during the sleep
-            await asyncio.wait_for(
-                cancel_event.wait(),
-                timeout=5.0
-            )
+            await asyncio.wait_for(cancel_event.wait(), timeout=5.0)
             # If we get here, cancel_event was set (cancel requested)
             logging.info(f"Cancelled during delay for session {session_id}")
             return PromptResponse(stop_reason="cancelled")
@@ -139,6 +155,7 @@ class EchoAgent(Agent):
         # Signal cancellation
         cancel_event.set()
         logging.info(f"Cancel event set for session: {session_id}")
+
 
 def number_lines(content: str) -> list[str]:
     return [f"{k + 1}\t {v}" for k, v in enumerate(content.split("\n"))]
