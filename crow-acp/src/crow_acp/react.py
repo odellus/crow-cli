@@ -38,7 +38,6 @@ from crow_acp.tools import (
 
 async def send_request(
     llm: AsyncOpenAI,
-    config: Config,
     session: Session,
     tools: list[dict],
 ):
@@ -46,13 +45,17 @@ async def send_request(
     Send request to LLM.
 
     Args:
-        session_id: Session ID to get session data
+        llm: The async OpenAI client.
+        session: The current session containing messages and model identifier.
+        tools: List of tool definitions.
 
     Returns:
         Streaming response from LLM
     """
+    logger.info(f"model: {session.model_identifier}")
+
     return await llm.chat.completions.create(
-        model=config.llm.models[0].model,
+        model=session.model_identifier,
         messages=session.messages,
         tools=tools,
         stream=True,
@@ -302,7 +305,6 @@ async def react_loop(
     turn_id: str,
     mcp_clients: dict[str, MCPClient],
     llm: AsyncOpenAI,
-    model: str,
     tools: list[dict],
     sessions: dict[str, Session],
     cancel_event: Event,
@@ -327,7 +329,6 @@ async def react_loop(
             return
         response = await send_request(
             llm,
-            config,
             session,
             tools,
         )

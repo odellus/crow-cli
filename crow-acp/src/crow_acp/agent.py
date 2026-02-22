@@ -455,7 +455,6 @@ class AcpAgent(Agent):
                     turn_id=turn_id,
                     mcp_clients=self._mcp_clients,
                     llm=llm,
-                    model=model_name,
                     tools=tools,
                     sessions=self._sessions,
                     cancel_event=self._cancel_events[session_id],
