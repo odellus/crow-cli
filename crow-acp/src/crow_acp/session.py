@@ -94,6 +94,7 @@ class Session:
         self.conv_index = 0
         self._db = None
         self._model = None  # SQLAlchemy model instance
+        self.model_identifier = None  # Set in create() or load()
 
     @property
     def db(self) -> SQLAlchemySession:
@@ -335,6 +336,7 @@ class Session:
         # Create Session instance with system message and cwd
         session = cls(session_id, db_path, cwd=cwd)
         session.messages = [{"role": "system", "content": system_prompt}]
+        session.model_identifier = model_identifier
 
         return session
 
@@ -359,6 +361,8 @@ class Session:
         # Load session model
         if session.model is None:
             raise ValueError(f"Session '{session_id}' not found")
+
+        session.model_identifier = session.model.model_identifier
 
         # Reconstruct messages from events
         events = (
