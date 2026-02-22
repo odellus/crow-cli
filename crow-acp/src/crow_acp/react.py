@@ -156,6 +156,7 @@ async def process_response(response, state_accumulator: dict):
     """
     thinking, content, tool_calls, tool_call_id = [], [], {}, None
     final_usage = None
+    # we need this in case we cancel mid-stream it all gets persisted anyway
     state_accumulator.update(
         {
             "thinking": thinking,
@@ -348,13 +349,16 @@ async def react_loop(
                 state_accumulator["content"],
                 state_accumulator["tool_call_inputs"],
                 [],
+                usage,
             )
             raise
         if cancel_event and cancel_event.is_set():
             logger.info("Cancelled before tool execution")
-            session.add_assistant_response(thinking, content, tool_call_inputs, [])
+            session.add_assistant_response(
+                thinking, content, tool_call_inputs, [], usage
+            )
         if not tool_call_inputs:
-            session.add_assistant_response(thinking, content, [], [])
+            session.add_assistant_response(thinking, content, [], [], usage)
             yield {"type": "final_history", "messages": session.messages}
             return
         tool_results = await execute_tool_calls(
@@ -370,9 +374,9 @@ async def react_loop(
         if cancel_event and cancel_event.is_set():
             logger.info("Cancelled after tool execution")
             session.add_assistant_response(
-                thinking, content, tool_call_inputs, tool_results
+                thinking, content, tool_call_inputs, tool_results, usage
             )
             return
         session.add_assistant_response(
-            thinking, content, tool_call_inputs, tool_results
+            thinking, content, tool_call_inputs, tool_results, usage
         )

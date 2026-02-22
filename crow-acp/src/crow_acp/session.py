@@ -167,6 +167,7 @@ class Session:
         content: list[str],
         tool_call_inputs: list[dict],
         tool_results: list[dict],
+        usage: dict | None = None,
     ):
         """
         Handle complex assistant message building + tool calls + results.
@@ -186,6 +187,9 @@ class Session:
                 role="assistant",
                 content="".join(content) if content else None,
                 reasoning_content="".join(thinking) if thinking else None,
+                prompt_tokens=usage.get("prompt_tokens") if usage else None,
+                completion_tokens=usage.get("completion_tokens") if usage else None,
+                total_tokens=usage.get("total_tokens") if usage else None,
             )
 
         # Build assistant message for LLM (with thinking and content)
