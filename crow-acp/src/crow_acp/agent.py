@@ -67,7 +67,7 @@ from sqlalchemy.engine.cursor import ResultProxy
 
 from crow_acp import mcp_client
 from crow_acp.config import Config, get_default_config, settings
-from crow_acp.context import context_fetcher, get_directory_tree, maximal_deserialize
+from crow_acp.context import context_fetcher, get_directory_tree
 from crow_acp.llm import configure_llm
 from crow_acp.logger import logger
 from crow_acp.mcp_client import create_mcp_client_from_acp, get_tools
@@ -215,6 +215,11 @@ class AcpAgent(Agent):
         """
         logger.info("Creating new session in cwd: %s", cwd)
 
+        ########################################
+        #  system prompt initialization
+        #  mcp servers == tools == system prompt
+        # ######################################
+
         # Use default MCP config if no servers provided
         fallback_config = self._config.get_builtin_mcp_config()
 
@@ -232,7 +237,11 @@ class AcpAgent(Agent):
         tools = await get_tools(mcp_client)
 
         # Load prompt template and get or create prompt_id
-
+        #########################################
+        #  Make this part of a different file,
+        #  modularize and move prompts to
+        #  ~/.crow/prompts/*.jinja2
+        # ######################################
         template_path = Path(__file__).parent / "prompts" / "system_prompt.jinja2"
         template = template_path.read_text()
         prompt_id = lookup_or_create_prompt(
@@ -246,6 +255,12 @@ class AcpAgent(Agent):
         else:
             agents_content = "No AGENTS.md found"
 
+        #######################################
+        #
+        #
+        #
+        #
+        #######################################
         session = Session.create(
             prompt_id=prompt_id,
             prompt_args={
@@ -279,6 +294,7 @@ class AcpAgent(Agent):
         logger.info("Created session: %s with %d tools", session.session_id, len(tools))
 
         config_options = self._get_config_options(session.session_id)
+
         return NewSessionResponse(
             session_id=session.session_id, config_options=config_options
         )

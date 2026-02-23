@@ -2,13 +2,10 @@
 LLM (Large Language Model) utilities.
 """
 
-import os
-
 import httpx
-from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
-from crow_acp.config import LLMProvider, settings
+from crow_acp.config import LLMProvider
 
 
 def log_request(request):

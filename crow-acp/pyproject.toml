@@ -12,6 +12,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "json-schema-to-pydantic>=0.4.9",
     "openai>=2.21.0",
+    "pandas>=3.0.1",
     "pysqlite3>=0.6.0",
     "sqlalchemy>=2.0.46",
 ]

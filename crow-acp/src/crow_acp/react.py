@@ -327,6 +327,7 @@ async def react_loop(
         if cancel_event and cancel_event.is_set():
             logger.info(f"Cancelled at start of turn {turn}")
             return
+
         response = await send_request(
             llm,
             session,
@@ -342,6 +343,7 @@ async def react_loop(
                     thinking, content, tool_call_inputs, usage = token
                 else:
                     yield {"type": msg_type, "token": token}
+
         except asyncio.CancelledError:
             logger.info("React loop cancelled mid-stream")
             session.add_assistant_response(
@@ -352,15 +354,27 @@ async def react_loop(
                 usage,
             )
             raise
+
         if cancel_event and cancel_event.is_set():
             logger.info("Cancelled before tool execution")
             session.add_assistant_response(
                 thinking, content, tool_call_inputs, [], usage
             )
+
+        # This ends the react loop
         if not tool_call_inputs:
             session.add_assistant_response(thinking, content, [], [], usage)
+            logger.info(f"Final React Turn Usage: {usage}")
             yield {"type": "final_history", "messages": session.messages}
             return
+
+        #####################################
+        # This is a great place to check
+        # if the context has gone over limi
+        # and to compact it
+        #####################################
+        logger.info(f"Pre-Tool ExecutionUsage: {usage}")
+        # We've got some tools to execute!
         tool_results = await execute_tool_calls(
             conn=conn,
             client_capabilities=client_capabilities,
@@ -377,6 +391,11 @@ async def react_loop(
                 thinking, content, tool_call_inputs, tool_results, usage
             )
             return
+
+        #####################################
+        #
+        #####################################
+
         session.add_assistant_response(
             thinking, content, tool_call_inputs, tool_results, usage
         )

@@ -136,7 +136,7 @@ async def execute_acp_terminal(
             command=command,
             session_id=session_id,
             cwd=cwd,
-            output_byte_limit=1000000,  # 1000KB limit
+            output_byte_limit=100000,  # 100KB limit
         )
         terminal_id = terminal_response.terminal_id
         logger.info(f"Terminal created: {terminal_id}")

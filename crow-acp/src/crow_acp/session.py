@@ -78,7 +78,12 @@ class Session:
     - Reconstruct conversation from database
     """
 
-    def __init__(self, session_id: str, db_path: str = "sqlite:///mcp_testing.db", cwd: str = "/tmp"):
+    def __init__(
+        self,
+        session_id: str,
+        db_path: str = "sqlite:///mcp_testing.db",
+        cwd: str = "/tmp",
+    ):
         """
         Initialize session with ID and database path.
 
@@ -337,6 +342,8 @@ class Session:
         session = cls(session_id, db_path, cwd=cwd)
         session.messages = [{"role": "system", "content": system_prompt}]
         session.model_identifier = model_identifier
+        session.tools = tool_definitions
+        session.request_params = request_params
 
         return session
 
@@ -363,7 +370,8 @@ class Session:
             raise ValueError(f"Session '{session_id}' not found")
 
         session.model_identifier = session.model.model_identifier
-
+        session.tools = session.model.tool_definitions
+        session.request_params = session.model.request_params
         # Reconstruct messages from events
         events = (
             session.db.query(Event)

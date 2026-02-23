@@ -18,3 +18,66 @@ Steps to Compaction:
 - user's original request, even if it's a simple "hey"
 - last react turn <- literally what we were doing when compacted. I mean things happen. tool calls time out. the agent sometimes gets stopped mid stream. we can just treat like any other cancel event and maybe even a extremely simple "please proceed with what you were doing" will work best? we'll see
 """
+
+from acp.schema import NewSessionResponse
+from crow_acp import tools
+from openai import AsyncOpenAI
+
+from crow_acp.session import Session
+from crow_acp.prompt import render_template
+
+MAX_COMPACT_TOKENS = 8192
+
+
+COMPACTION_PROMPT = """Please summarize everything in the conversation that happened AFTER the user's first message and before the current react turn began.
+FIRST USER MESSAGE:
+{{ first_message }}
+
+[what we want you to summarize in one very long block of beautiful markdown that illustrates the conversation in the context of the task you and the user are trying to accomplish in such a way that it splines/interpolates/segues naturally upon compacting]
+
+LAST USER MESSAGE:
+{{ last_message }}
+"""
+
+
+def get_last_user_idx(messages: list[dict[str, str]]) -> int:
+    for i in range(len(messages) - 1, -1, -1):
+        if messages[i].get("role") == "user":
+            return i
+    return -1
+
+
+async def non_streaming_request(messages: list[dict], tools: list[dict], request_params: dict, llm: AsyncOpenAI) -> str:
+    response = await llm.chat.completions.create(
+        model=session.model_identifier,
+        messages=messages,
+        tools=session.tools,
+        tool_choice="none",
+        **session.request_params,
+    )
+    return response.choices[0].message.content
+
+
+
+
+async def compact(
+    session: Session,
+    llm: AsyncOpenAI,
+) -> str:
+    messages = session.messages
+
+
+    # check that the last message is an assistant message
+    if messages[-1].get("role") != "assistant":
+        # we need to
+
+    # Implement the compact function here
+    session_id: str = session.session_id
+    messages: list[dict] = session.messages
+    tools: list[dict] = session.tools
+    request_params: dict = session.request_params
+    # Always step on the request param's max_completion_tokens
+    request_params["max_completion_tokens"] = MAX_COMPACT_TOKENS
+
+
+    return response.choices[0].message.content
