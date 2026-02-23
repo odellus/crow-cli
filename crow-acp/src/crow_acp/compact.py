@@ -114,11 +114,11 @@ async def compact(
     """
     # Summarize the conversation's middle
     middle_message, last_usr_msg_idx = await get_middle_message(session, llm)
-    messages = session.messages
+    orig_messages = session.messages
     messages = (
-        messages[:1]
+        [orig_messages[1]]  # First user message (skipping system at 0)
         + [dict(role="assistant", content=middle_message)]
-        + messages[last_usr_msg_idx:]  # last user message is included
+        + orig_messages[last_usr_msg_idx:]  # last user message is included
     )
 
     new_session = Session.create(
@@ -127,17 +127,9 @@ async def compact(
         tool_definitions=session.tools,
         request_params=session.request_params,
         model_identifier=session.model_identifier,
-        db_path=settings.database_path,
+        db_path=session.db_path,
         cwd=cwd,
+        initial_messages=messages,
     )
-    """"""
-    #########################################
-    #
-    # TO DO
-    # - we need to actually add the messages
-    #   to the new session with methods in
-    #   Session. This is a fake rollout
-    #
-    #########################################
 
     return new_session

@@ -292,6 +292,7 @@ class Session:
         model_identifier: str,
         db_path: str = "sqlite:///mcp_testing.db",
         cwd: str = "/tmp",
+        initial_messages: list[dict[str, Any]] | None = None,
     ) -> "Session":
         """
         Factory method to create a new session.
@@ -306,6 +307,7 @@ class Session:
             model_identifier: Model identifier string
             db_path: Database connection string
             cwd: Current working directory for this session
+            initial_messages: Initial messages to start the session with
 
         Returns:
             New Session instance
@@ -347,6 +349,40 @@ class Session:
         session.prompt_args = prompt_args
         session.db_path = db_path
         session.cwd = cwd
+
+        # Add initial messages
+        if initial_messages:
+            for msg in initial_messages:
+                role = msg.get("role")
+                if role == "system":
+                    continue  # skip system messages
+                
+                if role == "user":
+                    session.add_message(role="user", content=msg.get("content"))
+                elif role == "assistant":
+                    if "tool_calls" in msg:
+                        for tc in msg["tool_calls"]:
+                            session._save_event(
+                                role="assistant",
+                                tool_call_id=tc["id"],
+                                tool_call_name=tc["function"]["name"],
+                                tool_arguments=json.loads(tc["function"]["arguments"]),
+                            )
+                        session.messages.append(
+                            {"role": "assistant", "tool_calls": msg["tool_calls"]}
+                        )
+                    else:
+                        session.add_message(
+                            role="assistant",
+                            content=msg.get("content"),
+                            reasoning_content=msg.get("reasoning_content"),
+                        )
+                elif role == "tool":
+                    session.add_message(
+                        role="tool",
+                        tool_call_id=msg.get("tool_call_id"),
+                        content=msg.get("content"),
+                    )
 
         return session
 

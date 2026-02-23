@@ -366,6 +366,7 @@ async def react_loop(
             session.add_assistant_response(thinking, content, [], [], usage)
             logger.info(f"Final React Turn Usage: {usage}")
             yield {"type": "final_history", "messages": session.messages}
+            # I guess we need to check context length here too?
             return
 
         #####################################
@@ -399,3 +400,5 @@ async def react_loop(
         session.add_assistant_response(
             thinking, content, tool_call_inputs, tool_results, usage
         )
+
+        #### Fuck it check at the very end afer the tool's already been called and added if it's there
