@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine
 
-from crow_acp.db_v2 import Base, create_database
+from crow_acp.db import Base, create_database
 from crow_acp.session import Session, get_coolname, lookup_or_create_prompt
 
 

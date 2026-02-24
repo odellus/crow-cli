@@ -12,14 +12,14 @@ from coolname import generate_slug
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session as SQLAlchemySession
 
-from .db_v2 import Base, Message, Prompt, create_database
-from .db_v2 import Session as SessionModel
-from .prompt import render_template
+from crow_acp.db import Base, Message, Prompt, create_database
+from crow_acp.db import Session as SessionModel
+from crow_acp.prompt import render_template
 
 
 def get_coolname() -> str:
     """Generate a memorable slug with UUID suffix."""
-    return '-'.join((generate_slug(4), uuid4().hex[:6]))
+    return "-".join((generate_slug(4), uuid4().hex[:6]))
 
 
 def lookup_or_create_prompt(
@@ -32,7 +32,7 @@ def lookup_or_create_prompt(
     """
     # Ensure database tables exist
     create_database(db_path)
-    
+
     db = SQLAlchemySession(create_engine(db_path))
     try:
         existing = db.query(Prompt).filter_by(template=template).first()
@@ -92,12 +92,12 @@ class Session:
     def add_message(self, msg: dict):
         """
         Add message to in-memory list AND persist to database.
-        
+
         Args:
             msg: Full message dict (role, content, tool_calls, etc.)
         """
         self.messages.append(msg)
-        
+
         # Persist - one row = one message
         db_msg = Message(
             session_id=self.session_id,
@@ -117,7 +117,7 @@ class Session:
     ):
         """
         Handle complex assistant message building + tool calls + results.
-        
+
         Args:
             thinking: List of thinking tokens
             content: List of content tokens
@@ -129,7 +129,7 @@ class Session:
         assistant_msg = {"role": "assistant"}
         thinking_text = "".join(thinking) if thinking else None
         content_text = "".join(content) if content else None
-        
+
         if thinking_text:
             assistant_msg["reasoning_content"] = thinking_text
         if content_text:
@@ -138,7 +138,7 @@ class Session:
         # Add assistant message (with or without tool_calls)
         if tool_call_inputs:
             assistant_msg["tool_calls"] = tool_call_inputs
-        
+
         if len(assistant_msg) > 1:  # More than just role
             self.add_message(assistant_msg)
 

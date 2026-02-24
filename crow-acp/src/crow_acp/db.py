@@ -1,23 +1,20 @@
 """
-Database schema for MCP Testing - Local LLM first persistence layer.
+Database schema v2 - One row = One message.
 
-This module defines SQLAlchemy models for:
-1. PROMPTS table - Versioned system prompt templates
-2. SESSIONS table - The "DNA" of the agent (KV cache anchor)
-3. EVENTS table - The "Wide" transcript (all conversation turns)
+No more conv_index gymnastics. No more reconstructing messages from
+scattered events. Just serialize the message dict, deserialize it back.
+
+Message shapes we actually need:
+- system:   {role, content}
+- user:     {role, content}
+- assistant: {role, content?, reasoning_content?, tool_calls?}
+- tool:     {role, tool_call_id, content}
 """
 
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    Text,
-    create_engine,
-)
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Text, create_engine
 from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -29,140 +26,76 @@ class Prompt(Base):
 
     __tablename__ = "prompts"
 
-    id = Column(
-        Text, primary_key=True, doc="Unique prompt ID (e.g., 'crow-v1', 'crow-minimal')"
-    )
-    name = Column(Text, nullable=False, doc="Display name")
-    template = Column(Text, nullable=False, doc="Jinja2 template content")
+    id = Column(Text, primary_key=True)
+    name = Column(Text, nullable=False)
+    template = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
 
-    # Relationship to sessions
     sessions = relationship("Session", back_populates="prompt")
-
-    def __repr__(self) -> str:
-        return f"<Prompt(id='{self.id}', name='{self.name}')>"
 
 
 class Session(Base):
     """
-    The "DNA" of the agent. This table anchors your KV cache.
-    If a row exists with a specific hash, your local engine can skip the prefill.
+    Session metadata - the "DNA" of the conversation.
+
+    Stores config, but NOT the messages themselves.
+    Messages live in the Message table.
     """
 
     __tablename__ = "sessions"
 
-    session_id = Column(
-        Text, primary_key=True, doc="Unique hash of prompt_id + prompt_args + tools"
-    )
-    prompt_id = Column(
-        Text,
-        ForeignKey("prompts.id"),
-        nullable=True,
-        doc="Reference to prompt template",
-    )
-    prompt_args = Column(
-        JSON, nullable=True, doc="Arguments used to render the prompt template"
-    )
-    system_prompt = Column(
-        Text,
-        nullable=False,
-        doc="The rendered system prompt (cached for reconstruction)",
-    )
-    tool_definitions = Column(
-        JSON, nullable=False, doc="Full JSON schemas of all available MCP tools"
-    )
-    request_params = Column(
-        JSON, nullable=False, doc="temperature, top_p, max_tokens, etc."
-    )
-    model_identifier = Column(
-        Text,
-        nullable=False,
-        doc="Exact model version (e.g., 'glm-4.7' or 'llama-3-70b')",
-    )
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.now,
-        doc="When this agent configuration was first used",
-    )
+    session_id = Column(Text, primary_key=True)
+    prompt_id = Column(Text, ForeignKey("prompts.id"), nullable=True)
+    prompt_args = Column(JSON, nullable=True)
+    system_prompt = Column(Text, nullable=False)
+    tool_definitions = Column(JSON, nullable=False)
+    request_params = Column(JSON, nullable=False)
+    model_identifier = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
 
-    # Relationships
     prompt = relationship("Prompt", back_populates="sessions")
-    events = relationship(
-        "Event", back_populates="session", cascade="all, delete-orphan"
+    messages = relationship(
+        "Message", back_populates="session", cascade="all, delete-orphan"
     )
 
-    def __repr__(self) -> str:
-        return f"<Session(session_id='{self.session_id}', model='{self.model_identifier}')>"
 
-
-class Event(Base):
+class Message(Base):
     """
-    The "Wide" transcript. Every row is a single turn.
-    Captures thinking, speaking, and acting without needing to join multiple tables.
+    One row = One message.
+
+    Just store the message dict as JSON. No normalization headaches.
+
+    Examples:
+        system:   {role: "system", content: "You are..."}
+        user:     {role: "user", content: "fix the bug"}
+        assistant: {role: "assistant", content: "ok", reasoning_content: "...", tool_calls: [...]}
+        tool:     {role: "tool", tool_call_id: "call_123", content: "result..."}
     """
 
-    __tablename__ = "events"
+    __tablename__ = "messages"
 
-    id = Column(Integer, primary_key=True, autoincrement=True, doc="Unique event ID")
+    id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(
-        Text,
-        ForeignKey("sessions.session_id", ondelete="CASCADE"),
-        nullable=False,
-        doc="Links back to static session config",
+        Text, ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False
     )
-    conv_index = Column(Integer, nullable=False, doc="Linear order of the conversation")
-    timestamp = Column(
-        DateTime,
-        nullable=False,
-        default=datetime.now,
-        doc="Precise timing for latency and log-order analysis",
-    )
-    role = Column(
-        Text, nullable=False, doc="user, assistant, tool, or custom tool_assistant"
-    )
-    content = Column(
-        Text, nullable=True, doc="User: input; Assistant: verbal; Tool: JSON result"
-    )
-    reasoning_content = Column(
-        Text, nullable=True, doc="Internal 'Thinking' tokens (hidden from user)"
-    )
-    tool_call_id = Column(
-        Text, nullable=True, doc="Unique ID linking Assistant's intent to Tool's result"
-    )
-    tool_call_name = Column(
-        Text, nullable=True, doc="Name of the function being executed"
-    )
-    tool_arguments = Column(
-        JSON, nullable=True, doc="Arguments the model generated for the tool"
-    )
-    prompt_tokens = Column(
-        Integer, nullable=True, doc="Input token count from API usage"
-    )
-    completion_tokens = Column(
-        Integer, nullable=True, doc="Output token count from API usage"
-    )
-    total_tokens = Column(
-        Integer, nullable=True, doc="Total token count from API usage"
-    )
-    event_metadata = Column(
-        JSON, nullable=True, doc="Finish reasons, local GPU stats, or other metadata"
-    )
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
 
-    # Relationship to session
-    session = relationship("Session", back_populates="events")
+    # The message itself - just dump it here
+    data = Column(JSON, nullable=False)
 
-    def __repr__(self) -> str:
-        return f"<Event(id={self.id}, session_id='{self.session_id}', role='{self.role}', conv_index={self.conv_index})>"
+    # Convenience columns for querying (optional, but handy)
+    role = Column(Text, nullable=False, index=True)
+
+    # Token tracking (only on assistant messages)
+    prompt_tokens = Column(Integer, nullable=True)
+    completion_tokens = Column(Integer, nullable=True)
+    total_tokens = Column(Integer, nullable=True)
+
+    session = relationship("Session", back_populates="messages")
 
 
-def create_database(db_path: str = "sqlite:///mcp_testing.db") -> None:
-    """
-    Create the database and tables.
-
-    Args:
-        db_path: Database connection string (default: SQLite in current directory)
-    """
+def create_database(db_path: str = "sqlite:///crow.db") -> None:
+    """Create the database and tables."""
     engine = create_engine(db_path)
     Base.metadata.create_all(engine)
 

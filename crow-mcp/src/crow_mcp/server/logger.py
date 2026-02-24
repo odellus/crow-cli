@@ -1,8 +1,7 @@
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-
-from path import Path
+from pathlib import Path
 
 
 def get_log_path():

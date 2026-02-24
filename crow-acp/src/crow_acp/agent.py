@@ -12,10 +12,8 @@ No wrapper, no nested agents - just one clean Agent(acp.Agent) implementation.
 import asyncio
 import os
 import uuid
-from contextlib import AsyncExitStack, suppress
-from datetime import datetime
+from contextlib import AsyncExitStack
 from pathlib import Path
-from threading import ExceptHookArgs
 from typing import Any
 
 from acp import (
@@ -32,19 +30,9 @@ from acp import (
     update_agent_message,
     update_agent_thought,
 )
-from acp.helpers import (
-    ToolCallContentVariant,
-    start_edit_tool_call,
-    start_read_tool_call,
-    text_block,
-    tool_content,
-    tool_diff_content,
-    update_tool_call,
-)
 from acp.interfaces import Client
 from acp.schema import (
     AgentCapabilities,
-    AgentMessageChunk,
     AudioContentBlock,
     ClientCapabilities,
     EmbeddedResourceContentBlock,
@@ -56,18 +44,12 @@ from acp.schema import (
     SessionConfigOption,
     SetSessionConfigOptionResponse,
     SseMcpServer,
-    TerminalToolCallContent,
     TextContentBlock,
-    ToolCallProgress,
-    ToolCallStart,
 )
 from fastmcp import Client as MCPClient
-from json_schema_to_pydantic import create_model
-from sqlalchemy.engine.cursor import ResultProxy
 
-from crow_acp.config import Config, get_default_config, settings
+from crow_acp.config import Config, settings
 from crow_acp.context import context_fetcher, get_directory_tree
-from crow_acp.db_v2 import create_database
 from crow_acp.llm import configure_llm
 from crow_acp.logger import logger
 from crow_acp.mcp_client import create_mcp_client_from_acp, get_tools
