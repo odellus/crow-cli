@@ -260,12 +260,18 @@ def inspect_db(
     session_id: str | None = typer.Option(None, "--session", "-s", help="Session ID to inspect"),
     messages: bool = typer.Option(False, "--messages", "-m", help="Show messages"),
     limit: int = typer.Option(20, "--limit", "-l", help="Limit number of rows"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
 ):
     """Inspect the Crow database - see session state, messages, etc."""
+    import json
+    
     db_path = get_db_path()
     
     if not os.path.exists(db_path):
-        console.print(f"[red]Database not found at {db_path}[/red]")
+        if json_output:
+            print(json.dumps({"error": f"Database not found at {db_path}"}))
+        else:
+            console.print(f"[red]Database not found at {db_path}[/red]")
         raise SystemExit(1)
     
     conn = sqlite3.connect(db_path)
@@ -278,21 +284,22 @@ def inspect_db(
         session = cur.fetchone()
         
         if not session:
-            console.print(f"[red]Session '{session_id}' not found[/red]")
+            if json_output:
+                print(json.dumps({"error": f"Session '{session_id}' not found"}))
+            else:
+                console.print(f"[red]Session '{session_id}' not found[/red]")
             raise SystemExit(1)
         
-        # Session info table
-        table = Table(title=f"Session: {session_id}", show_header=False)
-        table.add_column("Field", style="cyan")
-        table.add_column("Value", style="green")
-        
+        # Build session dict
+        session_data = {}
         for key in session.keys():
-            if key not in ("tool_definitions", "request_params", "system_prompt"):
-                table.add_row(key, str(session[key]))
+            val = session[key]
+            if key in ("tool_definitions", "request_params", "system_prompt"):
+                continue
+            session_data[key] = val
         
-        console.print(table)
-        
-        # Show messages if requested
+        # Get messages if requested
+        msgs_data = []
         if messages:
             cur.execute(
                 "SELECT id, role, created_at, data FROM messages WHERE session_id = ? ORDER BY id LIMIT ?",
@@ -300,25 +307,50 @@ def inspect_db(
             )
             msgs = cur.fetchall()
             
-            msg_table = Table(title=f"Messages ({len(msgs)} shown)")
-            msg_table.add_column("ID", style="dim")
-            msg_table.add_column("Role", style="cyan")
-            msg_table.add_column("Created", style="dim")
-            msg_table.add_column("Content Preview", style="white")
-            
             for msg in msgs:
-                import json
-                data = json.loads(msg["data"])
-                content = data.get("content", "")
-                preview = content[:100] + "..." if len(content) > 100 else content
-                msg_table.add_row(
-                    str(msg["id"]),
-                    msg["role"],
-                    msg["created_at"][:19] if msg["created_at"] else "",
-                    preview.replace("\n", " ")
-                )
+                msg_data = json.loads(msg["data"])
+                msgs_data.append({
+                    "id": msg["id"],
+                    "role": msg["role"],
+                    "created_at": msg["created_at"],
+                    "data": msg_data
+                })
+        
+        if json_output:
+            output = {"session": session_data}
+            if messages:
+                output["messages"] = msgs_data
+            print(json.dumps(output, indent=2, default=str))
+        else:
+            # Session info table
+            table = Table(title=f"Session: {session_id}", show_header=False)
+            table.add_column("Field", style="cyan")
+            table.add_column("Value", style="green")
             
-            console.print(msg_table)
+            for key, val in session_data.items():
+                table.add_row(key, str(val))
+            
+            console.print(table)
+            
+            # Show messages if requested
+            if messages:
+                msg_table = Table(title=f"Messages ({len(msgs_data)} shown)")
+                msg_table.add_column("ID", style="dim")
+                msg_table.add_column("Role", style="cyan")
+                msg_table.add_column("Created", style="dim")
+                msg_table.add_column("Content Preview", style="white")
+                
+                for msg in msgs_data:
+                    content = msg["data"].get("content", "")
+                    preview = content[:100] + "..." if len(content) > 100 else content
+                    msg_table.add_row(
+                        str(msg["id"]),
+                        msg["role"],
+                        msg["created_at"][:19] if msg["created_at"] else "",
+                        preview.replace("\n", " ")
+                    )
+                
+                console.print(msg_table)
     else:
         # List all sessions
         cur.execute("""
@@ -332,25 +364,40 @@ def inspect_db(
         sessions = cur.fetchall()
         
         if not sessions:
-            console.print("[yellow]No sessions found[/yellow]")
+            if json_output:
+                print(json.dumps({"sessions": []}))
+            else:
+                console.print("[yellow]No sessions found[/yellow]")
             raise SystemExit(0)
         
-        table = Table(title="Crow Sessions")
-        table.add_column("Session ID", style="cyan")
-        table.add_column("Created", style="dim")
-        table.add_column("Model", style="green")
-        table.add_column("Messages", style="yellow")
-        
+        sessions_data = []
         for sess in sessions:
-            table.add_row(
-                sess["session_id"],
-                sess["created_at"][:19] if sess["created_at"] else "",
-                sess["model_identifier"] or "",
-                str(sess["message_count"])
-            )
+            sessions_data.append({
+                "session_id": sess["session_id"],
+                "created_at": sess["created_at"],
+                "model_identifier": sess["model_identifier"],
+                "message_count": sess["message_count"]
+            })
         
-        console.print(table)
-        console.print(f"\n[dim]Use --session <id> --messages to inspect a specific session[/dim]")
+        if json_output:
+            print(json.dumps({"sessions": sessions_data}, indent=2, default=str))
+        else:
+            table = Table(title="Crow Sessions")
+            table.add_column("Session ID", style="cyan")
+            table.add_column("Created", style="dim")
+            table.add_column("Model", style="green")
+            table.add_column("Messages", style="yellow")
+            
+            for sess in sessions_data:
+                table.add_row(
+                    sess["session_id"],
+                    sess["created_at"][:19] if sess["created_at"] else "",
+                    sess["model_identifier"] or "",
+                    str(sess["message_count"])
+                )
+            
+            console.print(table)
+            console.print(f"\n[dim]Use --session <id> --messages to inspect a specific session[/dim]")
     
     conn.close()
 
