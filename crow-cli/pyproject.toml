@@ -1,5 +1,5 @@
 [project]
-name = "crow-acp"
+name = "crow-cli"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -22,7 +22,7 @@ dependencies = [
 
 
 [project.scripts]
-crow-acp = "crow_acp.agent.agent:main"
+crow-cli = "crow_cli.cli.cli:main"
 
 [build-system]
 requires = ["hatchling"]

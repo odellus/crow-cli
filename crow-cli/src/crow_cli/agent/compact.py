@@ -3,11 +3,10 @@ file:           compact.py
 description:    compact the middle over the conversation
 """
 
+from crow_cli.agent.logger import logger
+from crow_cli.agent.prompt import render_template
+from crow_cli.agent.session import Session
 from openai import AsyncOpenAI
-
-from crow_acp.agent.logger import logger
-from crow_acp.agent.prompt import render_template
-from crow_acp.agent.session import Session
 
 MAX_OUTPUT_TOKENS = 8192
 

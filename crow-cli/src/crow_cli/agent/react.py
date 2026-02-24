@@ -20,21 +20,20 @@ from acp.schema import (
     ToolCallProgress,
     ToolCallStart,
 )
-from fastmcp import Client as MCPClient
-from openai import AsyncOpenAI
-
-from crow_acp.agent.compact import compact
-from crow_acp.agent.config import Config
-from crow_acp.agent.context import maximal_deserialize
-from crow_acp.agent.logger import logger
-from crow_acp.agent.session import Session
-from crow_acp.agent.tools import (
+from crow_cli.agent.compact import compact
+from crow_cli.agent.config import Config
+from crow_cli.agent.context import maximal_deserialize
+from crow_cli.agent.logger import logger
+from crow_cli.agent.session import Session
+from crow_cli.agent.tools import (
     execute_acp_edit,
     execute_acp_read,
     execute_acp_terminal,
     execute_acp_tool,
     execute_acp_write,
 )
+from fastmcp import Client as MCPClient
+from openai import AsyncOpenAI
 
 
 async def send_request(

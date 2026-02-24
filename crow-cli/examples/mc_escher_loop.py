@@ -33,7 +33,7 @@ class SimpleClient(Client):
 
 
 async def main() -> None:
-    script = Path("crow-acp/src/crow_acp/agent.py")
+    script = Path("crow-acp/src/crow_cli/agent.py")
     async with spawn_agent_process(SimpleClient(), sys.executable, str(script)) as (
         conn,
         _proc,

@@ -96,7 +96,7 @@ class Config:
     def get_builtin_mcp_config(self) -> dict[str, Any]:
         """Get the default MCP server configuration."""
         if not self.mcp_servers:
-            return get_default_mcp_config()
+            return get_default_mcp_config(self.config_dir)
         return self.mcp_servers
 
 
@@ -113,9 +113,9 @@ def get_default_config() -> Config:
     )
 
 
-def load_toml_config() -> Config:
+def load_toml_config(config_dir: Path) -> Config:
     """Load configuration from ~/.crow/config.toml and map it to dataclasses."""
-    config_file = get_config_dir() / "config.toml"
+    config_file = config_dir / "config.toml"
     llm_config = LLMConfig()
 
     if not config_file.exists():
@@ -149,7 +149,8 @@ def load_toml_config() -> Config:
             )
         )
 
-    return Config(llm=llm_config)
+    return Config(config_dir=config_dir, llm=llm_config)
 
 
-settings = load_toml_config()
+config_dir = get_config_dir()
+settings = load_toml_config(config_dir)

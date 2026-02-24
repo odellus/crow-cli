@@ -1,3 +1,5 @@
+# config.yaml for the spec at
+# ../src/crow_acp/agent/config.py
 mcpServers:
   crow-mcp:
     transport: stdio
@@ -8,6 +10,7 @@ mcpServers:
       - run
       - crow-mcp
 
+###
 providers:
   zai:
     api_key: ${ZAI_API_KEY}
@@ -19,6 +22,7 @@ providers:
     api_key: ${OPENROUTER_API_KEY}
     base_url: https://openrouter.ai/api/v1
 
+###
 models:
   glm-5:
     provider: zai
