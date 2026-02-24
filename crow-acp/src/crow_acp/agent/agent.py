@@ -48,13 +48,13 @@ from acp.schema import (
 )
 from fastmcp import Client as MCPClient
 
-from crow_acp.config import Config, settings
-from crow_acp.context import context_fetcher, get_directory_tree
-from crow_acp.llm import configure_llm
-from crow_acp.logger import logger
-from crow_acp.mcp_client import create_mcp_client_from_acp, get_tools
-from crow_acp.react import react_loop
-from crow_acp.session import Session, lookup_or_create_prompt
+from crow_acp.agent.config import Config, settings
+from crow_acp.agent.context import context_fetcher, get_directory_tree
+from crow_acp.agent.llm import configure_llm
+from crow_acp.agent.logger import logger
+from crow_acp.agent.mcp_client import create_mcp_client_from_acp, get_tools
+from crow_acp.agent.react import react_loop
+from crow_acp.agent.session import Session, lookup_or_create_prompt
 
 
 class AcpAgent(Agent):

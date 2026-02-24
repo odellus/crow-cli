@@ -23,12 +23,12 @@ from acp.schema import (
 from fastmcp import Client as MCPClient
 from openai import AsyncOpenAI
 
-from crow_acp.compact import compact
-from crow_acp.config import Config
-from crow_acp.context import maximal_deserialize
-from crow_acp.logger import logger
-from crow_acp.session import Session
-from crow_acp.tools import (
+from crow_acp.agent.compact import compact
+from crow_acp.agent.config import Config
+from crow_acp.agent.context import maximal_deserialize
+from crow_acp.agent.logger import logger
+from crow_acp.agent.session import Session
+from crow_acp.agent.tools import (
     execute_acp_edit,
     execute_acp_read,
     execute_acp_terminal,

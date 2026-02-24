@@ -22,7 +22,7 @@ dependencies = [
 
 
 [project.scripts]
-crow-acp = "crow_acp.agent:main"
+crow-acp = "crow_acp.agent.agent:main"
 
 [build-system]
 requires = ["hatchling"]

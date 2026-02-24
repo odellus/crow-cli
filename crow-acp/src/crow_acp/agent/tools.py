@@ -46,9 +46,9 @@ from acp.schema import (
 )
 from fastmcp import Client as MCPClient
 
-from crow_acp.config import Config
-from crow_acp.logger import logger
-from crow_acp.session import Session
+from crow_acp.agent.config import Config
+from crow_acp.agent.logger import logger
+from crow_acp.agent.session import Session
 
 
 def tool_match(tool_name: str, terms: tuple[str]) -> bool:

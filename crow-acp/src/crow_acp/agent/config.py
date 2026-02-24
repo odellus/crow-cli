@@ -5,10 +5,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-
-# load_dotenv()
-
 
 def get_config_dir() -> Path:
     """Get the configuration directory path (~/.crow)."""
@@ -31,7 +27,7 @@ def get_default_mcp_config(use_local: bool = True) -> dict[str, Any]:
     # Added safety check using .get() to prevent KeyErrors
     if use_local and "crow-mcp" in mcp_config.get("mcpServers", {}):
         path = Path(os.path.abspath(__file__))
-        local_path = path.parent.parent.parent.parent / "crow-mcp"
+        local_path = path.parent.parent.parent.parent.parent / "crow-mcp"
         mcp_config["mcpServers"]["crow-mcp"]["args"][1] = str(local_path)
 
     return mcp_config

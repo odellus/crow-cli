@@ -1,7 +1,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-from crow_acp.config import settings
+from crow_acp.agent.config import settings
 
 
 def setup_logger(name="crow_logger", log_file=settings.LOG_PATH, max_mb=5, max_files=3):

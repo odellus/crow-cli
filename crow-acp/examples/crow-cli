@@ -225,7 +225,7 @@ async def spawn_agent(cwd: str) -> asyncio.subprocess.Process:
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
         "-m",
-        "crow_acp.agent",
+        "crow_acp.agent.agent",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         cwd=cwd,

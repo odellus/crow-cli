@@ -5,7 +5,7 @@ LLM (Large Language Model) utilities.
 import httpx
 from openai import AsyncOpenAI
 
-from crow_acp.config import LLMProvider
+from crow_acp.agent.config import LLMProvider
 
 
 def log_request(request):

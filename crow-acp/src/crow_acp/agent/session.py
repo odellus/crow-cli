@@ -12,9 +12,9 @@ from coolname import generate_slug
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session as SQLAlchemySession
 
-from crow_acp.db import Base, Message, Prompt, create_database
-from crow_acp.db import Session as SessionModel
-from crow_acp.prompt import render_template
+from crow_acp.agent.db import Base, Message, Prompt, create_database
+from crow_acp.agent.db import Session as SessionModel
+from crow_acp.agent.prompt import render_template
 
 
 def get_coolname() -> str:
