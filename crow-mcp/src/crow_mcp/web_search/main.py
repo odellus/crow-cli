@@ -15,10 +15,8 @@ import os
 from httpx import AsyncClient
 from pydantic import BaseModel
 
+from crow_mcp.server.logger import logger
 from crow_mcp.server.main import mcp
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Create the combined MCP server
 # mcp = FastMCP(name="crow-builtin")
