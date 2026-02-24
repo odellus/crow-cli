@@ -65,9 +65,9 @@ from fastmcp import Client as MCPClient
 from json_schema_to_pydantic import create_model
 from sqlalchemy.engine.cursor import ResultProxy
 
-from crow_acp import mcp_client
 from crow_acp.config import Config, get_default_config, settings
 from crow_acp.context import context_fetcher, get_directory_tree
+from crow_acp.db_v2 import create_database
 from crow_acp.llm import configure_llm
 from crow_acp.logger import logger
 from crow_acp.mcp_client import create_mcp_client_from_acp, get_tools
@@ -447,7 +447,7 @@ class AcpAgent(Agent):
                     text_list.append(context_fetcher(uri))
 
             # Add user message to session
-            session.add_message("user", " ".join(text_list))
+            session.add_message({"role": "user", "content": " ".join(text_list)})
 
             # Clear cancel event for this new prompt
             cancel_event = self._cancel_events.get(session_id)

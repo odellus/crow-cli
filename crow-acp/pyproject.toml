@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "agent-client-protocol>=0.8.1",
+    "coolname>=2.2.0",
     "directory-tree>=1.0.0",
     "fastmcp>=2.14.5",
     "ipython>=9.10.0",
@@ -14,7 +15,9 @@ dependencies = [
     "openai>=2.21.0",
     "pandas>=3.0.1",
     "pysqlite3>=0.6.0",
+    "rich>=14.3.3",
     "sqlalchemy>=2.0.46",
+    "typer>=0.24.1",
 ]
 
 
@@ -28,4 +31,9 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "pytest-asyncio>=0.23.0",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
