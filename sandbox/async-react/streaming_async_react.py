@@ -30,10 +30,23 @@ def configure_provider():
     )
 
 
-def setup_mcp_client(mcp_path="/home/thomas/.crow/mcp.json"):
-    with open(mcp_path, "r") as f:
-        config = json.load(f)
-    return Client(config)
+def setup_mcp_client():
+    return Client(
+        {
+            "mcpServers": {
+                "crow-mcp": {
+                    "transport": "stdio",
+                    "command": "uv",
+                    "args": [
+                        "--project",
+                        "/home/thomas/src/nid/crow-mcp",
+                        "run",
+                        "crow-mcp",
+                    ],
+                }
+            }
+        }
+    )
 
 
 async def get_tools(mcp_client):
@@ -132,6 +145,7 @@ def process_tool_call_inputs(tool_calls):
 async def execute_tool_calls(mcp_client, tool_call_inputs, verbose=True):
     tool_results = []
     for tool_call in tool_call_inputs:
+        print(tool_call["function"]["arguments"])
         result = await mcp_client.call_tool(
             tool_call["function"]["name"],
             json.loads(tool_call["function"]["arguments"]),
@@ -169,6 +183,7 @@ def add_response_to_messages(
     if len(tool_call_inputs) > 0:
         messages.append(dict(role="assistant", tool_calls=tool_call_inputs))
     if len(tool_results) > 0:
+        print(tool_results)
         messages.extend(tool_results)
     return messages
 
@@ -208,13 +223,14 @@ async def main():
     final_history = []
     async with mcp_client:
         tools = await get_tools(mcp_client)
-        async for chunk in react_loop(messages, mcp_client, lm, "glm-5", tools):
+        async for chunk in react_loop(messages, mcp_client, lm, "qwen3.5-plus", tools):
             if chunk["type"] == "content":
                 print(chunk["token"], end="", flush=True)
             elif chunk["type"] == "thinking":
-                print(f"\n[Thinking]: {chunk['token']}", end="", flush=True)
+                print(chunk["token"], end="", flush=True)
             elif chunk["type"] == "tool_call":
                 name, first_arg = chunk["token"]
+                print(f"TOOL CHUNK: {chunk}")
                 print(f"\n[Tool Call]: {name}({first_arg}", end="", flush=True)
             elif chunk["type"] == "tool_args":
                 print(chunk["token"], end="", flush=True)

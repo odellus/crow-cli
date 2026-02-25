@@ -96,7 +96,7 @@ def process_chunk(
                 new_token = ("thinking", reasoning_chunk)
     else:
         for call in delta.tool_calls:
-            if call.id is not None and call.id != "":
+            if call.id is not None:
                 tool_call_id = call.id
                 if call.id not in tool_calls:
                     tool_calls[call.id] = {
