@@ -393,6 +393,7 @@ async def react_loop(
                 llm=llm,
                 cwd=session.cwd,
                 on_compact=on_compact,
+                logger=logger,
             )
             logger.info(f"Post-compacted session length: {len(session.messages)}")
             logger.info("Compaction complete - session updated in-place.")

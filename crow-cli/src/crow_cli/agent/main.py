@@ -241,7 +241,7 @@ class AcpAgent(Agent):
         #  modularize and move prompts to
         #  ~/.crow/prompts/*.jinja2
         # ######################################
-        template_path = Path(__file__).parent / "prompts" / "system_prompt.jinja2"
+        template_path = self._config.config_dir / "prompts" / "system_prompt.jinja2"
         template = template_path.read_text()
         prompt_id = lookup_or_create_prompt(
             template, name="crow-default", db_uri=self._db_uri

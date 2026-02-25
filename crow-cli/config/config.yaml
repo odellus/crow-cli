@@ -10,8 +10,9 @@ mcpServers:
       - run
       - crow-mcp
 
-# db_uri: postgresql://postgres:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/postgres
-db_uri: sqlite:///${HOME}/.crow/crow.db
+db_uri: postgresql://postgres:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/postgres
+# db_uri: sqlite:///${HOME}/.crow/crow.db
+
 ###
 providers:
   braintrust:

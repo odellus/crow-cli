@@ -13,20 +13,22 @@ services:
 
   db:
     image: postgres
+    platform: linux/arm64/v8
     restart: always
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
-      - 7348:5432
+      - ${POSTGRES_PORT}:5432
     volumes:
-      - ./postgres:/var/lib/postgresql/data
+      - ./postgres:/var/lib/postgresql
       # - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
-# volumes:
-#   database_data:
-#     driver: local
+
+volumes:
+  database_data:
+    driver: local
