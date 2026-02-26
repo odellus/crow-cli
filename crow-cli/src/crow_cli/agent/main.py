@@ -78,6 +78,7 @@ class AcpAgent(Agent):
 
     _conn: Client
     _client_capabilities: ClientCapabilities | None = None
+    _logger: Logger
 
     def __init__(self, config: Config | None = None) -> None:
         """
@@ -292,12 +293,18 @@ class AcpAgent(Agent):
         self._mcp_clients[session.session_id] = mcp_client
         self._tools[session.session_id] = tools
         self._cancel_events[session.session_id] = asyncio.Event()
-
+        self._session_logger = setup_logger(
+            self._config.config_dir / "logs" / f"crow-cli-{self._session_id}.log",
+            name=f"{self._session_id}-crow-logger",
+        )
         # Set default values for new session config
         default_model = self._default_model_value()
         self._config_values[session.session_id] = {"model": default_model}
 
         self._logger.info(
+            "Created session: %s with %d tools", session.session_id, len(tools)
+        )
+        self._session_logger.info(
             "Created session: %s with %d tools", session.session_id, len(tools)
         )
 
@@ -315,7 +322,7 @@ class AcpAgent(Agent):
         **kwargs: Any,
     ) -> LoadSessionResponse | None:
         """Load an existing session with proper resource management."""
-        self._logger.info("Loading session: %s", session_id)
+        self._session_logger.info("Loading session: %s", session_id)
 
         try:
             # Load session from database
@@ -352,7 +359,10 @@ class AcpAgent(Agent):
             self._mcp_clients[session_id] = mcp_client
             self._tools[session_id] = tools
             self._cancel_events[session_id] = asyncio.Event()
-
+            self._session_logger = setup_logger(
+                self._config.config_dir / "logs" / f"crow-cli-{self._session_id}.log",
+                name=f"{self._session_id}-crow-logger",
+            )
             # Initialize session config if not present
             if session_id not in self._config_values:
                 default_model = self._default_model_value()
@@ -420,7 +430,7 @@ class AcpAgent(Agent):
         Directly iterates over react_loop without intermediate buffering.
         Cancellation is handled via try/except - state is persisted by react_loop.
         """
-        self._logger.info("Prompt request for session: %s", session_id)
+        self._session_logger.info("Prompt request for session: %s", session_id)
 
         async def _execute_turn() -> PromptResponse:
             # Generate turn ID for this prompt (used for ACP tool call IDs)
@@ -429,7 +439,7 @@ class AcpAgent(Agent):
             # Get session
             session = self._sessions.get(session_id)
             if not session:
-                self._logger.error("Session not found: %s", session_id)
+                self._session_logger.error("Session not found: %s", session_id)
                 return PromptResponse(stop_reason="cancelled")
 
             # Build user message content (supports text, images, and resource links)
@@ -500,7 +510,9 @@ class AcpAgent(Agent):
                                     resp = await client.get(uri)
                                     image_bytes = resp.content
                             else:
-                                self._logger.warning(f"Unsupported URI scheme: {uri}")
+                                self._session_logger.warning(
+                                    f"Unsupported URI scheme: {uri}"
+                                )
                                 continue
 
                             # Detect mime type if not provided
@@ -511,12 +523,12 @@ class AcpAgent(Agent):
                             data = base64.b64encode(image_bytes).decode("utf-8")
                             image_url_value = f"data:{mime_type};base64,{data}"
                         except Exception as e:
-                            self._logger.error(
+                            self._session_logger.error(
                                 f"Failed to fetch image from URI {uri}: {e}"
                             )
                             continue
                     else:
-                        self._logger.warning(
+                        self._session_logger.warning(
                             f"Image block missing data or uri: {block}"
                         )
                         continue
@@ -533,7 +545,7 @@ class AcpAgent(Agent):
                         if isinstance(block, dict)
                         else getattr(block, "uri", "")
                     )
-                    self._logger.info(f"resource uri: {uri}")
+                    self._session_logger.info(f"resource uri: {uri}")
                     fetched = context_fetcher(uri, self._logger)
                     user_content.append({"type": "text", "text": fetched})
 
@@ -593,7 +605,7 @@ class AcpAgent(Agent):
                     session_id=session_id,
                     state_accumulators=self._state_accumulators,
                     on_compact=on_compact,
-                    logger=self._logger,
+                    logger=self._session_logger,
                 ):
                     chunk_type = chunk.get("type")
 
@@ -622,7 +634,7 @@ class AcpAgent(Agent):
                 return PromptResponse(stop_reason="end_turn")
 
             except asyncio.CancelledError:
-                self._logger.info("Prompt cancelled")
+                self._session_logger.info("Prompt cancelled")
                 # State is already persisted by react_loop's cancellation handler
                 raise
 
@@ -633,10 +645,12 @@ class AcpAgent(Agent):
         try:
             return await task
         except asyncio.CancelledError:
-            self._logger.info("Prompt gracefully stopped due to client cancellation")
+            self._session_logger.info(
+                "Prompt gracefully stopped due to client cancellation"
+            )
             return PromptResponse(stop_reason="cancelled")
         except Exception as e:
-            self._logger.error("Error in prompt handling: %s", e, exc_info=True)
+            self._session_logger.error("Error in prompt handling: %s", e, exc_info=True)
             return PromptResponse(stop_reason="end_turn")
         finally:
             # 4. Cleanup the task reference when done
@@ -644,7 +658,7 @@ class AcpAgent(Agent):
 
     async def cancel(self, session_id: str, **kwargs: Any) -> None:
         """Handle cancellation by immediately cancelling the underlying Task."""
-        self._logger.info("Cancel request for session: %s", session_id)
+        self._session_logger.info("Cancel request for session: %s", session_id)
 
         task = self._prompt_tasks.get(session_id)
         if task and not task.done():
