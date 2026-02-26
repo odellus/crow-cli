@@ -225,6 +225,28 @@ async def execute_tool_calls(
 
         try:
             arg_dict = maximal_deserialize(tool_args)
+            if not isinstance(arg_dict, dict):
+                # LLM produced malformed JSON for tool arguments.
+                # Fix the arguments in-place so the message history
+                # doesn't poison future API calls with invalid JSON.
+                raw_args = tool_call["function"]["arguments"]
+                tool_call["function"]["arguments"] = "{}"
+                logger.error(
+                    f"Malformed tool arguments for {tool_name}: {raw_args}"
+                )
+                result_content = (
+                    f"Error: Your tool call for '{tool_name}' had malformed arguments "
+                    f"that could not be parsed as JSON. Raw arguments: {raw_args!r}\n"
+                    f"Please retry with valid JSON arguments matching the tool schema."
+                )
+                tool_results.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": llm_tool_call_id,
+                        "content": result_content,
+                    }
+                )
+                continue
             if tool_name == config.TERMINAL_TOOL and use_acp_terminal:
                 result_content = await execute_acp_terminal(
                     conn=conn,
