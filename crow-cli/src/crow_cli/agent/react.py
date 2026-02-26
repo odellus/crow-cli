@@ -444,6 +444,21 @@ async def react_loop(
         #
         #####################################
         # CANCEL EVENT NOT SET
-        session.add_react_response(
-            thinking, content, tool_call_inputs, tool_results, usage
-        )
+        # thought we could sneak out but the
+        # the thinking tokens are coming in
+        # they are already in thinking
+        # and nothing else is so when you cancel
+        # while the model is thinking, no content
+        # or tool_call_inputs or tool_results are
+        # present and you get a
+        # {  role=assistant,
+        #    reasoning="The user is absolute"
+        # }
+        # AND NO CONTENT, NOT TOOL_CALL_INPUTS
+        # SO 400 error
+        if len(content) > 0
+        or len(tool_call_inputs)
+        or len(tool_results) > 0:
+            session.add_react_response(
+                thinking, content, tool_call_inputs, tool_results, usage
+            )
