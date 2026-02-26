@@ -371,7 +371,7 @@ async def react_loop(
         if cancel_event and cancel_event.is_set():
             logger.info("Cancelled before tool execution")
             # CHECK THAT THESE FORM A VALID RESPONSE AND ARE NOT EMPTY
-            if len(content) > or len(tool_call_inputs) > 0:
+            if len(content) > 0 or len(tool_call_inputs) > 0:
                 session.add_react_response(
                     thinking, content, tool_call_inputs, [], usage
                 )
@@ -436,8 +436,8 @@ async def react_loop(
             logger.info("Cancelled after tool execution")
             if len(tool_results) > 0:
                 session.add_react_response(
-                thinking, content, tool_call_inputs, tool_results, usage
-            )
+                    thinking, content, tool_call_inputs, tool_results, usage
+                )
             return
 
         #####################################
