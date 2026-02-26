@@ -354,27 +354,25 @@ async def react_loop(
         except asyncio.CancelledError:
             logger.info("React loop cancelled mid-stream")
 
-            # CHECK THAT THESE FORM A VALID RESPONSE AND ARE NOT EMPTY
-            if (
-                "content" in state_accumulator
-                or "tool_call_inputs" in state_accumulator
-            ):
-                session.add_react_response(
-                    state_accumulator["thinking"],
-                    state_accumulator["content"],
-                    state_accumulator["tool_call_inputs"],
-                    [],
-                    usage,
-                )
+            session.add_assistant_response(
+                state_accumulator["thinking"],
+                state_accumulator["content"],
+                state_accumulator["tool_call_inputs"],
+                logger,
+                usage,
+            )
             raise
 
+        # we have just finished processing the response from the language model and it is time to execute the tool call
         if cancel_event and cancel_event.is_set():
             logger.info("Cancelled before tool execution")
-            # CHECK THAT THESE FORM A VALID RESPONSE AND ARE NOT EMPTY
-            if len(content) > 0 or len(tool_call_inputs) > 0:
-                session.add_react_response(
-                    thinking, content, tool_call_inputs, [], usage
-                )
+            session.add_assistant_response(
+                thinking,
+                content,
+                tool_call_inputs,
+                logger,
+                usage,
+            )
             return
 
         ################################################
@@ -406,59 +404,56 @@ async def react_loop(
             logger.info(f"Post-compacted session length: {len(session.messages)}")
             logger.info("Compaction complete - session updated in-place.")
 
-        # This ends the react loop
+        # This ends the react loop — NO TOOLS!!
         if not tool_call_inputs and len(content) > 0:
-            session.add_react_response(thinking, content, [], [], usage)
+            session.add_assistant_response(
+                thinking,
+                content,
+                [],
+                logger,
+                usage,
+            )
             logger.info(f"Final React Turn Usage: {usage}")
             yield {"type": "final_history", "messages": session.messages}
             # I guess we need to check context length here too?
             return
-
-        #####################################
-        # This is a great place to check
-        # if the context has gone over limi
-        # and to compact it
-        #####################################
-        logger.info(f"Pre-Tool ExecutionUsage: {usage}")
-        # We've got some tools to execute!
-        tool_results = await execute_tool_calls(
-            conn=conn,
-            client_capabilities=client_capabilities,
-            turn_id=turn_id,
-            config=config,
-            mcp_clients=mcp_clients,
-            sessions=sessions,
-            session_id=session_id,
-            tool_call_inputs=tool_call_inputs,
-            logger=logger,
-        )
-        if cancel_event and cancel_event.is_set():
-            logger.info("Cancelled after tool execution")
-            if len(tool_results) > 0:
-                session.add_react_response(
-                    thinking, content, tool_call_inputs, tool_results, usage
-                )
-            return
-
-        #####################################
-        #
-        #####################################
-        # CANCEL EVENT NOT SET
-        # thought we could sneak out but the
-        # the thinking tokens are coming in
-        # they are already in thinking
-        # and nothing else is so when you cancel
-        # while the model is thinking, no content
-        # or tool_call_inputs or tool_results are
-        # present and you get a
-        # {  role=assistant,
-        #    reasoning="The user is absolute"
-        # }
-        # AND NO CONTENT, NOT TOOL_CALL_INPUTS
-        # SO 400 error
-        if len(content) > 0
-        or len(tool_call_inputs)
-        or len(tool_results) > 0:
-            session.add_react_response(
-                thinking, content, tool_call_inputs, tool_results, usage
+        # Continue the loop because we have tools to call
+        # and miles to go before we sleep
+        # and miles to go before we sleep
+        else:
+            logger.info(f"Pre-Tool ExecutionUsage: {usage}")
+            # We've got some tools to execute!
+            tool_results = await execute_tool_calls(
+                conn=conn,
+                client_capabilities=client_capabilities,
+                turn_id=turn_id,
+                config=config,
+                mcp_clients=mcp_clients,
+                sessions=sessions,
+                session_id=session_id,
+                tool_call_inputs=tool_call_inputs,
+                logger=logger,
             )
+            # CANCEL SIGNAL
+            if cancel_event and cancel_event.is_set():
+                logger.info("Cancelled after tool execution")
+                if len(tool_results) > 0:
+                    session.add_assistant_response(
+                        thinking,
+                        content,
+                        tool_call_inputs,
+                        usage,
+                        logger,
+                    )
+
+                    session.add_tool_response(tool_results, logger)
+                return
+
+            session.add_assistant_response(
+                thinking,
+                content,
+                tool_call_inputs,
+                logger,
+                usage,
+            )
+            session.add_tool_response(tool_results, logger)

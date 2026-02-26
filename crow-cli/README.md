@@ -7,12 +7,9 @@
 ```bash
 # Ensure you're in the correct project directory
 cd /home/thomas/src/nid
-
+uv venv
 # Install dependencies using uv
-uv sync --project /home/thomas/src/nid/crow-acp
-
-# Or install from the workspace root
-uv sync
+uv --project /home/thomas/src/nid/crow-cli sync
 ```
 
 ## Quick Start
@@ -21,10 +18,8 @@ uv sync
 
 ```bash
 # Activate the virtual environment (if not using --project)
-source /home/thomas/src/nid/crow-acp/.venv/bin/activate
-
 # Run the agent
-crow-cli --help
+uv --project crow-cli crow-cli --help
 ```
 
 ### Run Programmatically
@@ -150,7 +145,7 @@ Sessions are stored in SQLite with three main tables:
 
 ## Usage with ACP Clients
 
-`crow-acp` is designed to work with any ACP-compatible client:
+`crow-cli` is designed to work with any ACP-compatible client:
 
 ```bash
 # Example with ACP client that supports terminal and filesystem capabilities
@@ -170,7 +165,7 @@ The agent automatically detects and uses client capabilities:
 ## Project Structure
 
 ```
-crow-acp/
+crow-cli/
 ├── agent.py          # AcpAgent class - ACP protocol + ReAct loop
 ├── session.py        # Session management + persistence
 ├── db.py             # SQLAlchemy database models
@@ -192,30 +187,129 @@ crow-acp/
 
 ```bash
 # From the project root
-uv run --project /home/thomas/src/nid pytest crow-acp/tests/
+uv run --project /home/thomas/src/nid pytest crow-cli/tests/
 ```
 
 ### Building
 
 ```bash
 # Build the package
-uv build --project /home/thomas/src/nid/crow-acp
+uv build --project /home/thomas/src/nid/crow-cli
 
 # Install locally
-pip install --force-reinstall ./crow-acp/dist/*.whl
+pip install --force-reinstall ./crow-cli/dist/*.whl
 ```
+### ReAct Loop Logic
 
-## Integration with Other Crow Packages
-
-`crow-acp` works as the core agent implementation alongside other Crow packages:
-
-| Package | Purpose | Relationship to crow-acp |
-|---------|---------|------------------------|
-| `crow-mcp` | MCP tools (file, terminal, search) | Provides tools that crow-acp executes |
-| `crow-agent` | SDK for programmatic agent control | Wraps crow-acp for easier use |
-| `crow-core` | ACP-native agent with extensions | Future: extension system on top |
-| `crow-persistence` | Post-request DB hooks | Future: session persistence hooks |
-| `crow-skills` | Pre-request context injectors | Future: filesystem context hooks |
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           REACT LOOP (Turn N)                           │
+└─────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+                    ┌───────────────────────────────┐
+                    │   cancel_event.is_set()?      │
+                    └───────────────────────────────┘
+                          │                  │
+                         YES                 NO
+                          │                  │
+                          ▼                  ▼
+                    ┌──────────┐    ┌────────────────────────┐
+                    │  RETURN  │    │  send_request(LLM)     │
+                    └──────────┘    └────────────────────────┘
+                                            │
+                                            ▼
+                              ┌──────────────────────────────┐
+                              │  process_response() stream   │
+                              │  ┌────────────────────────┐  │
+                              │  │ Yield: thinking/token  │  │
+                              │  │ Yield: content/token   │  │
+                              │  │ Yield: tool_args/token │  │
+                              │  └────────────────────────┘  │
+                              │           │                  │
+                              │           ▼                  │
+                              │    Collect in              │
+                              │    state_accumulator       │
+                              └──────────────────────────────┘
+                                            │
+                                            ▼
+                              ┌──────────────────────────────┐
+                              │  Cancelled during stream?    │
+                              └──────────────────────────────┘
+                          ┌────────┴────────┐
+                         YES                NO
+                          │                  │
+                          ▼                  ▼
+                    ┌──────────────┐  ┌────────────────────────┐
+                    │ Add partial  │  │ Yield: final           │
+                    │ response     │  │ (thinking, content,    │
+                    │ + results    │  │  tool_call_inputs)     │
+                    │ Raise        │  └────────────────────────┘
+                    │ CancelledErr │                │
+                    └──────────────┘                ▼
+                          │                  ┌────────────────────────┐
+                          │                  │ Log pre-tool usage     │
+                          ▼                  └────────────────────────┘
+                    ┌──────────┐                         │
+                    │  RETURN  │                 ┌────────────────────────┐
+                    └──────────┘                 │ tokens > threshold?    │
+                          │                      └────────────────────────┘
+┌──────────────────────────────┐                           │              │
+│  Turn Loop: for turn in      │                          YES             NO
+│    range(max_turns):         │                           │              │
+└──────────────────────────────┘                           ▼              ▼
+                          │                      ┌──────────────┐  ┌──────────┐
+                          ▼                      │  COMPACT     │  │  SKIP  │
+              ┌──────────────────────────┐      │  session()   │  │ COMPACT│
+              │  process_response DONE   │      └──────────────┘  └──────────┘
+              │  Extract: thinking       │           │                │
+              │         content          │           └────────┬───────┘
+              │         tool_call_inputs │                    │
+              │         usage            │                    ▼
+              └──────────────────────────┘         ┌────────────────────────┐
+                          │                         │  Has tools to call?  │
+                          ▼                         └────────────────────────┘
+              ┌──────────────────────────┐                           │
+              │  Cancelled after stream? │                      ┌────┴────┐
+              └──────────────────────────┘                     YES      NO
+                          │                                       │          │
+                         YES                                      ▼          ▼
+                          │                              ┌──────────────┐  ┌──────────────┐
+                          ▼                              │  EXECUTE     │  │  NO TOOLS    │
+                    ┌──────────────┐                     │  TOOLS       │  │  (final msg) │
+                    │ Add partial  │                     └──────────────┘  └──────────────┘
+                    │ response     │                            │              │
+                    │ + tool       │                            │              │
+                    │ results      │                            ▼              ▼
+                    │ RETURN       │                    ┌──────────────┐  ┌──────────────┐
+                    └──────────────┘                    │ Add tools    │  │ Add assistant│
+                                                        │ to results   │  │ response     │
+                                                        └──────────────┘  └──────────────┘
+                                                        │              │              │
+                                                        ▼              ▼              ▼
+                              ┌──────────────────────────────────────────────────┐
+                              │  Cancelled after tool execution?               │
+                              └──────────────────────────────────────────────────┘
+                                          │
+                                 ┌────────┴────────┐
+                                YES                NO
+                                 │                  │
+                                 ▼                  ▼
+                        ┌──────────────┐  ┌────────────────────────┐
+                        │ Add partial  │  │ Add assistant response │
+                        │ response +   │  │ + tool results         │
+                        │ tool results │  └────────────────────────┘
+                        │ RETURN       │              │
+                        └──────────────┘              │
+                                                    │
+                                                    ▼
+                                        ┌────────────────────────┐
+                                        │  Turn N complete       │
+                                        │  ───────────────────── │
+                                        │  Loop back to turn N+1 │
+                                        │  (or max_turns reached)│
+                                        └────────────────────────┘
+```
 
 ## Troubleshooting
 

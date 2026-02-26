@@ -5,6 +5,7 @@ One row = One message. No conv_index gymnastics. No reconstruction headaches.
 Just serialize the message dict, deserialize it back.
 """
 
+from logging import Logger
 from typing import Any
 from uuid import uuid4
 
@@ -107,16 +108,25 @@ class Session:
         self.db.add(db_msg)
         self.db.commit()
 
-    def add_react_response(
+    def add_tool_response(
+        self,
+        tool_results: list[dict],
+        logger: Logger,
+    ):
+        for tool_result in tool_results:
+            logger.info(f"TOOL RESULT: {tool_result}")
+            self.add_message(tool_result)
+
+    def add_assistant_response(
         self,
         thinking: list[str],
         content: list[str],
         tool_call_inputs: list[dict],
-        tool_results: list[dict],
+        logger: Logging,
         usage: dict | None = None,
     ):
         """
-        Handle complex assistant message building + tool calls + results.
+        Handle complex react message building + tool calls + results.
 
         Args:
             thinking: List of thinking tokens
@@ -125,26 +135,20 @@ class Session:
             tool_results: Results from tool execution
             usage: Token usage dict
         """
-        # Build assistant message
-        assistant_msg = {"role": "assistant"}
-        thinking_text = "".join(thinking) if thinking else None
-        content_text = "".join(content) if content else None
+        # Build react message
+        # if it's just thinking tokens don't add that shit
+        if len(content) > 0 or len(tool_call_inputs) > 0:
+            thinking_text = "".join(thinking) if thinking else ""
+            content_text = "".join(content) if content else ""
+            msg = {"role": "assistant", "content": content_text}
+            if thinking_text and thinking_text != "":
+                msg["reasoning_content"] = thinking_text
+            if tool_call_inputs:
+                msg["tool_calls"] = tool_call_inputs
 
-        if thinking_text:
-            assistant_msg["reasoning_content"] = thinking_text
-        if content_text:
-            assistant_msg["content"] = content_text
-
-        # Add assistant message (with or without tool_calls)
-        if tool_call_inputs:
-            assistant_msg["tool_calls"] = tool_call_inputs
-
-        if len(assistant_msg) > 1:  # More than just role
-            self.add_message(assistant_msg)
-
-        # Add tool results
-        for tool_result in tool_results:
-            self.add_message(tool_result)
+            logger.info(f"Adding message: {msg}")
+            # Add to database/list
+            self.add_message(msg)
 
     def _save_messages(self, messages: list[dict]):
         """Batch save messages to database."""
