@@ -1,4 +1,3 @@
-#!/home/thomas/src/projects/mcp-testing/crow-acp/.venv/bin/python
 """
 ACP-native Agent.
 
@@ -456,7 +455,9 @@ class AcpAgent(Agent):
                         if isinstance(block, dict)
                         else getattr(block, "text", "")
                     )
-                    user_content.append({"type": "text", "text": text})
+                    # Skip empty text blocks - API requires non-empty text
+                    if text:
+                        user_content.append({"type": "text", "text": text})
                 elif _type == "resource":
                     resource = (
                         block.get("resource", "")
@@ -468,7 +469,9 @@ class AcpAgent(Agent):
                         if isinstance(resource, dict)
                         else getattr(resource, "text", "")
                     )
-                    user_content.append({"type": "text", "text": text})
+                    # Skip empty text blocks - API requires non-empty text
+                    if text:
+                        user_content.append({"type": "text", "text": text})
                 elif _type == "image":
                     # Handle ACP image content block
                     # ACP format: {"type": "image", "mimeType": "image/png", "data": "base64..."}
@@ -547,9 +550,15 @@ class AcpAgent(Agent):
                     )
                     self._session_logger.info(f"resource uri: {uri}")
                     fetched = context_fetcher(uri, self._logger)
-                    user_content.append({"type": "text", "text": fetched})
+                    # Skip empty text blocks - API requires non-empty text
+                    if fetched:
+                        user_content.append({"type": "text", "text": fetched})
 
             # Add user message to session with content array (supports multimodal)
+            # Skip if no valid content blocks were collected
+            if not user_content:
+                self._session_logger.warning("Empty user content - skipping message")
+                return PromptResponse(stop_reason="error")
             session.add_message({"role": "user", "content": user_content})
 
             # Clear cancel event for this new prompt
