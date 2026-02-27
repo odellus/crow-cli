@@ -15,3 +15,5 @@ wheels/
 
 # test database
 *.db
+
+sandbox/crow-editor/frontend/node_modules
