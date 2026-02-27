@@ -191,34 +191,18 @@ def block_anchor_replacer(content: str, find: str) -> Generator[str, None, None]
 def whitespace_normalized_replacer(
     content: str, find: str
 ) -> Generator[str, None, None]:
-    """4. Match with normalized whitespace."""
+    """4. Match with normalized whitespace using regex for exact content extraction."""
+    words = find.strip().split()
+    if not words:
+        return
 
-    def normalize(text: str) -> str:
-        return " ".join(text.split())
+    # Create a regex pattern that treats any sequence of whitespace (including newlines)
+    # as a flexible gap between the exact words we are looking for.
+    pattern = r"\s+".join(re.escape(w) for w in words)
 
-    normalized_find = normalize(find)
-
-    # Single line matches
-    for line in content.split("\n"):
-        if normalize(line) == normalized_find:
-            yield line
-        elif normalized_find in normalize(line):
-            # Try regex match for substring
-            words = find.strip().split()
-            if words:
-                pattern = r"\s+".join(re.escape(w) for w in words)
-                match = re.search(pattern, line)
-                if match:
-                    yield match.group(0)
-
-    # Multi-line matches
-    find_lines = find.split("\n")
-    if len(find_lines) > 1:
-        content_lines = content.split("\n")
-        for i in range(len(content_lines) - len(find_lines) + 1):
-            block = "\n".join(content_lines[i : i + len(find_lines)])
-            if normalize(block) == normalized_find:
-                yield block
+    # re.finditer will find the exact string inside `content` that matches this sequence
+    for match in re.finditer(pattern, content):
+        yield match.group(0)
 
 
 def indentation_flexible_replacer(
@@ -263,9 +247,11 @@ def escape_normalized_replacer(content: str, find: str) -> Generator[str, None, 
         return result
 
     unescaped_find = unescape(find)
+    yielded = set()
 
     if unescaped_find in content:
         yield unescaped_find
+        yielded.add(unescaped_find)
 
     # Also try finding escaped versions
     content_lines = content.split("\n")
@@ -273,8 +259,9 @@ def escape_normalized_replacer(content: str, find: str) -> Generator[str, None, 
 
     for i in range(len(content_lines) - len(find_lines) + 1):
         block = "\n".join(content_lines[i : i + len(find_lines)])
-        if unescape(block) == unescaped_find:
+        if unescape(block) == unescaped_find and block not in yielded:
             yield block
+            yielded.add(block)
 
 
 def trimmed_boundary_replacer(content: str, find: str) -> Generator[str, None, None]:
@@ -283,8 +270,11 @@ def trimmed_boundary_replacer(content: str, find: str) -> Generator[str, None, N
     if trimmed == find:
         return  # Already trimmed
 
+    yielded = set()
+
     if trimmed in content:
         yield trimmed
+        yielded.add(trimmed)
 
     # Also try block matching
     content_lines = content.split("\n")
@@ -292,8 +282,9 @@ def trimmed_boundary_replacer(content: str, find: str) -> Generator[str, None, N
 
     for i in range(len(content_lines) - len(find_lines) + 1):
         block = "\n".join(content_lines[i : i + len(find_lines)])
-        if block.strip() == trimmed:
+        if block.strip() == trimmed and block not in yielded:
             yield block
+            yielded.add(block)
 
 
 def context_aware_replacer(content: str, find: str) -> Generator[str, None, None]:
@@ -313,36 +304,37 @@ def context_aware_replacer(content: str, find: str) -> Generator[str, None, None
         if line.strip() != first_line:
             continue
 
-        for j in range(i + 2, len(content_lines)):
-            if content_lines[j].strip() == last_line:
-                block_lines = content_lines[i : j + 1]
+        # Calculate the expected end line based on find_lines length
+        expected_end = i + len(find_lines) - 1
+        if expected_end >= len(content_lines):
+            continue
 
-                if len(block_lines) == len(find_lines):
-                    matching = 0
-                    total = 0
+        # Check if the last line matches at the expected position
+        if content_lines[expected_end].strip() != last_line:
+            continue
 
-                    for k in range(1, len(block_lines) - 1):
-                        block_ln = block_lines[k].strip()
-                        find_ln = find_lines[k].strip()
-                        if block_ln or find_ln:
-                            total += 1
-                            if block_ln == find_ln:
-                                matching += 1
+        block_lines = content_lines[i : expected_end + 1]
 
-                    if total == 0 or matching / total >= 0.5:
-                        yield "\n".join(block_lines)
-                break
+        # Check middle lines for 50% match
+        matching = 0
+        total = 0
+
+        for k in range(1, len(block_lines) - 1):
+            block_ln = block_lines[k].strip()
+            find_ln = find_lines[k].strip()
+            if block_ln or find_ln:
+                total += 1
+                if block_ln == find_ln:
+                    matching += 1
+
+        if total == 0 or matching / total >= 0.5:
+            yield "\n".join(block_lines)
 
 
 def multi_occurrence_replacer(content: str, find: str) -> Generator[str, None, None]:
     """9. Yield all exact matches."""
-    start = 0
-    while True:
-        idx = content.find(find, start)
-        if idx == -1:
-            break
+    if find in content:
         yield find
-        start = idx + len(find)
 
 
 # All replacers in order
@@ -362,35 +354,47 @@ REPLACERS = [
 def replace(
     content: str, old_string: str, new_string: str, replace_all: bool = False
 ) -> str:
-    """Replace old_string with new_string using cascading fuzzy matchers."""
+    """Replace old_string with new_string using cascading fuzzy matchers based on precise spans."""
     if old_string == new_string:
         raise ValueError("old_string and new_string must be different")
 
-    not_found = True
+    all_matches: list[tuple[int, int]] = []
 
     for replacer in REPLACERS:
-        for search in replacer(content, old_string):
-            idx = content.find(search)
-            if idx == -1:
-                continue
+        # Use a set to prevent duplicate string yields from causing false multiple matches
+        found_in_this_step = set()
 
-            not_found = False
+        for search_text in replacer(content, old_string):
+            start = 0
+            while True:
+                idx = content.find(search_text, start)
+                if idx == -1:
+                    break
+                found_in_this_step.add((idx, idx + len(search_text)))
+                # Move past this match to avoid overlapping matches
+                start = idx + len(search_text)
 
-            if replace_all:
-                return content.replace(search, new_string)
+        if found_in_this_step:
+            all_matches = list(found_in_this_step)
+            break  # We found the best fuzziness level, stop cascading
 
-            # Check uniqueness
-            last_idx = content.rfind(search)
-            if idx != last_idx:
-                continue  # Multiple matches, try next replacer
-
-            return content[:idx] + new_string + content[idx + len(search) :]
-
-    if not_found:
+    if not all_matches:
         raise ValueError("old_string not found in file")
-    raise ValueError(
-        "old_string found multiple times. Provide more context to identify the correct match."
-    )
+
+    # Sort in reverse order so applying the replacement doesn't invalidate subsequent indices
+    all_matches.sort(key=lambda x: x[0], reverse=True)
+
+    if len(all_matches) > 1 and not replace_all:
+        raise ValueError(
+            f"old_string found {len(all_matches)} times. Provide more context to identify the correct match."
+        )
+
+    # Apply all matched replacements back-to-front
+    new_content = content
+    for start, end in all_matches:
+        new_content = new_content[:start] + new_string + new_content[end:]
+
+    return new_content
 
 
 @mcp.tool
@@ -454,16 +458,10 @@ async def edit(
     except OSError as e:
         return f"Error: Failed to write file: {e}"
 
-    # Count replacements for message
+    # Since the `replace` function now accurately determines the match count natively,
+    # we can determine replacements based on `replace_all` logic more cleanly,
+    # but the simplest way is just checking string length changes or just stating success.
     if replace_all:
-        # Count how many times the search string appeared
-        count = 0
-        for replacer in REPLACERS:
-            for _ in replacer(content, old_string):
-                count += 1
-            if count > 0:
-                break
-        if count > 1:
-            return f"Successfully made {count} replacements in {path}"
+        return f"Successfully made replacements in {path}"
 
     return f"Successfully edited {path}"

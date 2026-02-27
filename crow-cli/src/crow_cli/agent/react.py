@@ -21,7 +21,8 @@ from acp.schema import (
     ToolCallStart,
 )
 from fastmcp import Client as MCPClient
-from openai import AsyncOpenAI
+from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError, Timeout
+from openai._exceptions import APITimeoutError
 
 from crow_cli.agent.compact import compact
 from crow_cli.agent.configure import Config
@@ -40,26 +41,123 @@ async def send_request(
     llm: AsyncOpenAI,
     session: Session,
     tools: list[dict],
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
 ):
     """
-    Send request to LLM.
+    Send request to LLM with error handling and retry logic.
 
     Args:
         llm: The async OpenAI client.
         session: The current session containing messages and model identifier.
         tools: List of tool definitions.
+        max_retries: Maximum number of retry attempts (default: 3).
+        retry_delay: Base delay between retries in seconds (default: 1.0).
 
     Returns:
         Streaming response from LLM
+
+    Raises:
+        APIError: If the API request fails after all retries.
+        RateLimitError: If rate limit is exceeded.
+        APIConnectionError: If connection to API fails.
     """
-    return await llm.chat.completions.create(
-        model=session.model_identifier,
-        messages=session.messages,
-        tools=tools,
-        stream=True,
-        max_tokens=8192,
-        parallel_tool_calls=True,
-    )
+    last_exception = None
+
+    for attempt in range(max_retries):
+        try:
+            return await llm.chat.completions.create(
+                model=session.model_identifier,
+                messages=session.messages,
+                tools=tools,
+                stream=True,
+                max_tokens=8192,
+                parallel_tool_calls=True,
+            )
+        except APITimeoutError as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = retry_delay * (2**attempt)  # Exponential backoff
+                await asyncio.sleep(delay)
+            else:
+                raise
+        except RateLimitError as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = retry_delay * (2**attempt)  # Exponential backoff
+                await asyncio.sleep(delay)
+            else:
+                raise
+        except APIConnectionError as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = retry_delay * (2**attempt)  # Exponential backoff
+                await asyncio.sleep(delay)
+            else:
+                raise
+        except APIError as e:
+            # For other API errors, check if retryable
+            if hasattr(e, "status_code") and e.status_code in [429, 500, 502, 503, 504]:
+                if attempt < max_retries - 1:
+                    delay = retry_delay * (2**attempt)  # Exponential backoff
+                    await asyncio.sleep(delay)
+                else:
+                    raise
+            else:
+                # Non-retryable error, raise immediately
+                raise
+        except asyncio.CancelledError:
+            # Don't retry on cancellation
+            raise
+        except Exception as e:
+            # Unexpected error, log and re-raise
+            last_exception = e
+            raise
+
+    # Should not reach here, but just in case
+    raise last_exception
+
+
+# from fastmcp import Client as MCPClient
+# from openai import AsyncOpenAI
+
+# from crow_cli.agent.compact import compact
+# from crow_cli.agent.configure import Config
+# from crow_cli.agent.context import maximal_deserialize
+# from crow_cli.agent.session import Session
+# from crow_cli.agent.tools import (
+#     execute_acp_edit,
+#     execute_acp_read,
+#     execute_acp_terminal,
+#     execute_acp_tool,
+#     execute_acp_write,
+# )
+
+
+# async def send_request(
+#     llm: AsyncOpenAI,
+#     session: Session,
+#     tools: list[dict],
+# ):
+#     """
+#     Send request to LLM.
+
+#     Args:
+#         llm: The async OpenAI client.
+#         session: The current session containing messages and model identifier.
+#         tools: List of tool definitions.
+
+#     Returns:
+#         Streaming response from LLM
+#     """
+#     return await llm.chat.completions.create(
+#         model=session.model_identifier,
+#         messages=session.messages,
+#         tools=tools,
+#         stream=True,
+#         max_tokens=8192,
+#         parallel_tool_calls=True,
+#     )
 
 
 def process_chunk(
