@@ -85,6 +85,11 @@ async def send_request(
                             normalized_blocks.append({"type": "text", "text": block})
                         elif isinstance(block, dict):
                             # Already in correct format, keep as-is
+                            if (
+                                block.get("type") == "text"
+                                and not block.get("text", "").strip()
+                            ):
+                                continue
                             normalized_blocks.append(block)
                     normalized_msg["content"] = normalized_blocks
                 normalized_messages.append(normalized_msg)
