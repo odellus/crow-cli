@@ -56,6 +56,7 @@ from crow_cli.agent.context import context_fetcher, get_directory_tree, uri_to_p
 from crow_cli.agent.llm import configure_llm
 from crow_cli.agent.logger import setup_logger
 from crow_cli.agent.mcp_client import create_mcp_client_from_acp, get_tools
+from crow_cli.agent.prompt import normalize_prompt
 from crow_cli.agent.react import react_loop
 from crow_cli.agent.session import Session, lookup_or_create_prompt
 
@@ -247,11 +248,6 @@ class AcpAgent(Agent):
         tools = await get_tools(mcp_client)
 
         # Load prompt template and get or create prompt_id
-        #########################################
-        #  Make this part of a different file,
-        #  modularize and move prompts to
-        #  ~/.crow/prompts/*.jinja2
-        # ######################################
         template_path = self._config.config_dir / "prompts" / "system_prompt.jinja2"
         template = template_path.read_text()
         prompt_id = lookup_or_create_prompt(
@@ -265,12 +261,6 @@ class AcpAgent(Agent):
         else:
             agents_content = "No AGENTS.md found"
 
-        #######################################
-        #
-        #
-        #
-        #
-        #######################################
         session = Session.create(
             prompt_id=prompt_id,
             prompt_args={
@@ -333,10 +323,14 @@ class AcpAgent(Agent):
             # Use default config if no servers given
             self._logger.info("LOAD_SESSION: Step 2: Getting fallback config")
             fallback_config = self._config.get_builtin_mcp_config()
-            self._logger.info("LOAD_SESSION: Step 2 complete: fallback_config = %s", fallback_config)
-            
+            self._logger.info(
+                "LOAD_SESSION: Step 2 complete: fallback_config = %s", fallback_config
+            )
+
             if fallback_config:
-                self._logger.info("LOAD_SESSION: Step 3: Creating MCP client with fallback config")
+                self._logger.info(
+                    "LOAD_SESSION: Step 3: Creating MCP client with fallback config"
+                )
                 mcp_client = create_mcp_client_from_acp(
                     mcp_servers=mcp_servers,
                     cwd=cwd,
@@ -355,7 +349,9 @@ class AcpAgent(Agent):
             # CRITICAL: Use AsyncExitStack for lifecycle management
             self._logger.info("LOAD_SESSION: Step 4: Entering async context")
             mcp_client = await self._exit_stack.enter_async_context(mcp_client)
-            self._logger.info("LOAD_SESSION: Step 4 complete: MCP client context entered")
+            self._logger.info(
+                "LOAD_SESSION: Step 4 complete: MCP client context entered"
+            )
 
             # Get tools
             tools = await get_tools(mcp_client)
@@ -451,118 +447,7 @@ class AcpAgent(Agent):
                 return PromptResponse(stop_reason="cancelled")
 
             # Build user message content (supports text, images, and resource links)
-            user_content = []
-            for block in prompt:
-                _type = (
-                    block.get("type", "")
-                    if isinstance(block, dict)
-                    else getattr(block, "type", "")
-                )
-                if _type == "text":
-                    text = (
-                        block.get("text", "")
-                        if isinstance(block, dict)
-                        else getattr(block, "text", "")
-                    )
-                    # Skip empty text blocks - API requires non-empty text
-                    if text:
-                        user_content.append({"type": "text", "text": text})
-                elif _type == "resource":
-                    resource = (
-                        block.get("resource", "")
-                        if isinstance(block, dict)
-                        else getattr(block, "resource", "")
-                    )
-                    text = (
-                        resource.get("text", "")
-                        if isinstance(resource, dict)
-                        else getattr(resource, "text", "")
-                    )
-                    # Skip empty text blocks - API requires non-empty text
-                    if text:
-                        user_content.append({"type": "text", "text": text})
-                elif _type == "image":
-                    # Handle ACP image content block
-                    # ACP format: {"type": "image", "mimeType": "image/png", "data": "base64..."}
-                    # or with uri: {"type": "image", "mimeType": "image/png", "uri": "..."}
-                    # OpenAI format: {"type": "image_url", "image_url": {"url": "data:...base64..."}}
-                    mime_type = (
-                        block.get("mimeType", "")
-                        if isinstance(block, dict)
-                        else getattr(block, "mimeType", "")
-                    )
-                    data = (
-                        block.get("data", "")
-                        if isinstance(block, dict)
-                        else getattr(block, "data", "")
-                    )
-                    uri = (
-                        block.get("uri", "")
-                        if isinstance(block, dict)
-                        else getattr(block, "uri", "")
-                    )
-
-                    # Build the image_url value (base64 data URL required for llama.cpp)
-                    if data:
-                        # Already base64-encoded - use as-is
-                        if not mime_type:
-                            mime_type = "image/png"  # Default fallback
-                        image_url_value = f"data:{mime_type};base64,{data}"
-                    elif uri:
-                        # Fetch and encode the image from URI
-                        try:
-                            if uri.startswith("file://"):
-                                # Read local file
-                                file_path = uri_to_path(uri)
-                                with open(file_path, "rb") as f:
-                                    image_bytes = f.read()
-                            elif uri.startswith(("http://", "https://")):
-                                # Fetch from URL
-                                async with httpx.AsyncClient() as client:
-                                    resp = await client.get(uri)
-                                    image_bytes = resp.content
-                            else:
-                                self._session_logger.warning(
-                                    f"Unsupported URI scheme: {uri}"
-                                )
-                                continue
-
-                            # Detect mime type if not provided
-                            if not mime_type:
-                                mime_type = mimetypes.guess_type(uri)[0] or "image/png"
-
-                            # Base64 encode
-                            data = base64.b64encode(image_bytes).decode("utf-8")
-                            image_url_value = f"data:{mime_type};base64,{data}"
-                        except Exception as e:
-                            self._session_logger.error(
-                                f"Failed to fetch image from URI {uri}: {e}"
-                            )
-                            continue
-                    else:
-                        self._session_logger.warning(
-                            f"Image block missing data or uri: {block}"
-                        )
-                        continue
-
-                    # OpenAI expects this format:
-                    # {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
-                    user_content.append(
-                        {"type": "image_url", "image_url": {"url": image_url_value}}
-                    )
-
-                elif _type == "resource_link":
-                    uri = (
-                        block.get("uri", "")
-                        if isinstance(block, dict)
-                        else getattr(block, "uri", "")
-                    )
-                    self._session_logger.info(f"resource uri: {uri}")
-                    fetched = context_fetcher(uri, self._logger)
-                    # Skip empty text blocks - API requires non-empty text
-                    if fetched:
-                        user_content.append({"type": "text", "text": fetched})
-
+            user_content = await normalize_prompt(prompt, self._session_logger)
             # Add user message to session with content array (supports multimodal)
             # Skip if no valid content blocks were collected
             if not user_content:
