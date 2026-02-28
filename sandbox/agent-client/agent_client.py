@@ -355,11 +355,57 @@ class AgentClient(Agent):
         await self._ws.send(json.dumps(notification))
         logger.info(f"Sent notification: {method}")
 
+    async def cleanup(self):
+        """Clean up child processes and resources."""
+        if self._cleanup_done:
+            return
+        
+        self._cleanup_done = True
+        logger.info("Cleaning up child processes...")
+
+        # Cancel update task
+        if self._update_task and not self._update_task.done():
+            self._update_task.cancel()
+            try:
+                await self._update_task
+            except asyncio.CancelledError:
+                pass
+
+        # Close WebSocket
+        if self._ws and not self._ws.closed:
+            await self._ws.close()
+            logger.info("WebSocket closed")
+
+        # Kill bridge process (which will also kill child agent)
+        if self._bridge_process and self._bridge_process.returncode is None:
+            logger.info(f"Terminating bridge process (PID: {self._bridge_process.pid})")
+            try:
+                self._bridge_process.terminate()
+                # Wait briefly for graceful shutdown
+                try:
+                    await asyncio.wait_for(self._bridge_process.wait(), timeout=2.0)
+                    logger.info("Bridge process terminated gracefully")
+                except asyncio.TimeoutError:
+                    logger.warning("Bridge process didn't terminate, killing...")
+                    self._bridge_process.kill()
+                    await self._bridge_process.wait()
+                    logger.info("Bridge process killed")
+            except ProcessLookupError:
+                logger.info("Bridge process already terminated")
+
+        logger.info("Cleanup complete")
+
 
 async def main() -> None:
     """Run the agent-client."""
     logger.info("Starting AgentClient")
-    await run_agent(AgentClient())
+    agent = AgentClient()
+    
+    try:
+        await run_agent(agent)
+    finally:
+        # Always clean up child processes on exit
+        await agent.cleanup()
 
 
 if __name__ == "__main__":

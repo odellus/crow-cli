@@ -45,28 +45,50 @@ class StdioToWsBridge:
         """Start the bridge."""
         logger.info(f"Starting stdio-to-ws bridge on ws://{self.host}:{self.port}")
         
-        # Start WebSocket server FIRST (so client can connect)
-        async with websockets.serve(self._handle_connection, self.host, self.port):
-            logger.info(f"WebSocket server running on ws://{self.host}:{self.port}")
-            
-            # Now spawn the subprocess
-            logger.info(f"Spawning subprocess: {' '.join(self.command)}")
-            self._process = await asyncio.create_subprocess_exec(
-                *self.command,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            
-            logger.info(f"Subprocess spawned with PID {self._process.pid}")
-            
-            # Log stderr to file (separate from our logging)
-            asyncio.create_task(self._log_stderr())
-            
-            # Keep running until process exits
-            await self._process.wait()
+        try:
+            # Start WebSocket server FIRST (so client can connect)
+            async with websockets.serve(self._handle_connection, self.host, self.port):
+                logger.info(f"WebSocket server running on ws://{self.host}:{self.port}")
+                
+                # Now spawn the subprocess
+                logger.info(f"Spawning subprocess: {' '.join(self.command)}")
+                self._process = await asyncio.create_subprocess_exec(
+                    *self.command,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                
+                logger.info(f"Subprocess spawned with PID {self._process.pid}")
+                
+                # Log stderr to file (separate from our logging)
+                asyncio.create_task(self._log_stderr())
+                
+                # Keep running until process exits
+                await self._process.wait()
+        finally:
+            # Clean up subprocess when bridge exits
+            await self._cleanup()
         
         logger.info("Bridge shutdown")
+    
+    async def _cleanup(self):
+        """Clean up subprocess when bridge exits."""
+        if self._process and self._process.returncode is None:
+            logger.info(f"Terminating subprocess (PID: {self._process.pid})")
+            try:
+                self._process.terminate()
+                # Wait briefly for graceful shutdown
+                try:
+                    await asyncio.wait_for(self._process.wait(), timeout=2.0)
+                    logger.info("Subprocess terminated gracefully")
+                except asyncio.TimeoutError:
+                    logger.warning("Subprocess didn't terminate, killing...")
+                    self._process.kill()
+                    await self._process.wait()
+                    logger.info("Subprocess killed")
+            except ProcessLookupError:
+                logger.info("Subprocess already terminated")
     
     async def _log_stderr(self):
         """Log subprocess stderr to file."""
