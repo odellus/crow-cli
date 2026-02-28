@@ -1,0 +1,303 @@
+2026-02-28 07:01:17,550 - asyncio - DEBUG - Using selector: EpollSelector
+2026-02-28 07:01:17,550 - __main__ - INFO - Starting AgentClient
+2026-02-28 07:01:17,550 - __main__ - INFO - AgentClient initialized
+2026-02-28 07:01:17,550 - __main__ - INFO - Upstream client connected
+2026-02-28 07:01:20,356 - __main__ - INFO - AgentClient.initialize() called
+2026-02-28 07:01:20,356 - __main__ - INFO -   protocol_version: 1
+2026-02-28 07:01:20,356 - __main__ - INFO -   client_capabilities: field_meta=None fs=FileSystemCapability(field_meta=None, read_text_file=False, write_text_file=False) terminal=False
+2026-02-28 07:01:20,356 - __main__ - INFO -   client_info: None
+2026-02-28 07:01:20,356 - __main__ - INFO - Spawning child agent...
+2026-02-28 07:01:20,356 - __main__ - INFO -   bridge: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/stdio_to_ws.py
+2026-02-28 07:01:20,356 - __main__ - INFO -   child: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/echo_agent.py
+2026-02-28 07:01:20,357 - __main__ - INFO - Bridge spawned (PID: 3606101)
+2026-02-28 07:01:20,357 - __main__ - INFO - Connecting to WebSocket on port 8765...
+2026-02-28 07:01:20,375 - websockets.client - DEBUG - = connection is CONNECTING
+2026-02-28 07:01:20,375 - websockets.client - DEBUG - > GET / HTTP/1.1
+2026-02-28 07:01:20,376 - websockets.client - DEBUG - > Host: localhost:8765
+2026-02-28 07:01:20,376 - websockets.client - DEBUG - > Upgrade: websocket
+2026-02-28 07:01:20,376 - websockets.client - DEBUG - > Connection: Upgrade
+2026-02-28 07:01:20,376 - websockets.client - DEBUG - > Sec-WebSocket-Key: 87KFRIL+OqHbyhNpTmY4aA==
+2026-02-28 07:01:20,376 - websockets.client - DEBUG - > Sec-WebSocket-Version: 13
+2026-02-28 07:01:20,376 - websockets.client - DEBUG - > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+2026-02-28 07:01:20,376 - websockets.client - DEBUG - > User-Agent: Python/3.14 websockets/16.0
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < HTTP/1.1 101 Switching Protocols
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < Date: Sat, 28 Feb 2026 12:01:20 GMT
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < Upgrade: websocket
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < Connection: Upgrade
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < Sec-WebSocket-Accept: gjO51ojxhEC2xYSMYqBaJQdPEMQ=
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < Sec-WebSocket-Extensions: permessage-deflate; server_max_window_bits=12; client_max_window_bits=12
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < Server: Python/3.14 websockets/16.0
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - = connection is OPEN
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - < CLOSE 1000 (OK) [2 bytes]
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - > CLOSE 1000 (OK) [2 bytes]
+2026-02-28 07:01:20,377 - websockets.client - DEBUG - = connection is CLOSING
+2026-02-28 07:01:20,377 - __main__ - INFO - WebSocket connected
+2026-02-28 07:01:20,377 - __main__ - INFO - Forwarding initialize to child agent...
+2026-02-28 07:01:20,378 - websockets.client - DEBUG - < EOF
+2026-02-28 07:01:20,378 - websockets.client - DEBUG - > EOF
+2026-02-28 07:01:20,378 - websockets.client - DEBUG - = connection is CLOSED
+2026-02-28 07:01:20,378 - websockets.client - DEBUG - x half-closing TCP connection
+2026-02-28 07:01:20,378 - __main__ - ERROR - Error in initialize: received 1000 (OK); then sent 1000 (OK)
+Traceback (most recent call last):
+  File "/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/agent_client.py", line 98, in initialize
+    response = await self._send_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+    )
+    ^
+  File "/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/agent_client.py", line 309, in _send_request
+    await self._ws.send(json.dumps(request))
+  File "/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/.venv/lib/python3.14/site-packages/websockets/asyncio/connection.py", line 478, in send
+    async with self.send_context():
+               ~~~~~~~~~~~~~~~~~^^
+  File "/home/thomas/.local/share/uv/python/cpython-3.14.2-linux-x86_64-gnu/lib/python3.14/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/.venv/lib/python3.14/site-packages/websockets/asyncio/connection.py", line 965, in send_context
+    raise self.protocol.close_exc from original_exc
+websockets.exceptions.ConnectionClosedOK: received 1000 (OK); then sent 1000 (OK)
+2026-02-28 07:01:20,379 - root - ERROR - Background task failed
+Traceback (most recent call last):
+  File "/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/.venv/lib/python3.14/site-packages/acp/task/supervisor.py", line 51, in _on_done
+    task.result()
+    ~~~~~~~~~~~^^
+  File "/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/.venv/lib/python3.14/site-packages/acp/task/dispatcher.py", line 81, in runner
+    result = await self._request_runner(message)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/.venv/lib/python3.14/site-packages/acp/connection.py", line 237, in _run_request
+    raise err from None
+acp.exceptions.RequestError: Internal error
+2026-02-28 11:46:04,766 - asyncio - DEBUG - Using selector: EpollSelector
+2026-02-28 11:46:04,766 - __main__ - INFO - Starting AgentClient
+2026-02-28 11:46:04,766 - __main__ - INFO - AgentClient initialized
+2026-02-28 11:46:04,766 - __main__ - INFO - Upstream client connected
+2026-02-28 11:46:07,576 - __main__ - INFO - AgentClient.initialize() called
+2026-02-28 11:46:07,576 - __main__ - INFO -   protocol_version: 1
+2026-02-28 11:46:07,576 - __main__ - INFO -   client_capabilities: field_meta=None fs=FileSystemCapability(field_meta=None, read_text_file=False, write_text_file=False) terminal=False
+2026-02-28 11:46:07,576 - __main__ - INFO -   client_info: None
+2026-02-28 11:46:07,576 - __main__ - INFO - Spawning child agent...
+2026-02-28 11:46:07,576 - __main__ - INFO -   bridge: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/stdio_to_ws.py
+2026-02-28 11:46:07,576 - __main__ - INFO -   child: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/echo_agent.py
+2026-02-28 11:46:07,577 - __main__ - INFO - Bridge spawned (PID: 3687110)
+2026-02-28 11:46:07,577 - __main__ - INFO - Connecting to WebSocket on port 8765...
+2026-02-28 11:46:07,595 - websockets.client - DEBUG - = connection is CONNECTING
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > GET / HTTP/1.1
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > Host: localhost:8765
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > Upgrade: websocket
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > Connection: Upgrade
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > Sec-WebSocket-Key: D4rtkcNwEb/1dnqII7JXFQ==
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > Sec-WebSocket-Version: 13
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+2026-02-28 11:46:07,596 - websockets.client - DEBUG - > User-Agent: Python/3.14 websockets/16.0
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - < HTTP/1.1 101 Switching Protocols
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - < Date: Sat, 28 Feb 2026 16:46:07 GMT
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - < Upgrade: websocket
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - < Connection: Upgrade
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - < Sec-WebSocket-Accept: sdpDit/eI+gDhZ9bqDMTdUHVW0E=
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - < Sec-WebSocket-Extensions: permessage-deflate; server_max_window_bits=12; client_max_window_bits=12
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - < Server: Python/3.14 websockets/16.0
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - = connection is OPEN
+2026-02-28 11:46:07,597 - __main__ - INFO - WebSocket connected
+2026-02-28 11:46:07,597 - __main__ - INFO - Forwarding initialize to child agent...
+2026-02-28 11:46:07,597 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 1, "method": "initiali...}, "clientInfo": null}}' [207 bytes]
+2026-02-28 11:46:07,597 - __main__ - INFO - Sent request 1: initialize
+2026-02-28 11:46:07,598 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}' [55 bytes]
+2026-02-28 11:46:07,598 - __main__ - INFO - Received response 1
+2026-02-28 11:46:07,598 - __main__ - INFO - Child agent initialized: {'jsonrpc': '2.0', 'id': 1, 'result': {'protocolVersion': 1}}
+2026-02-28 11:46:07,598 - __main__ - INFO - Returning InitializeResponse with protocol_version=1
+2026-02-28 11:46:07,599 - __main__ - INFO - AgentClient.new_session(cwd=/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client)
+2026-02-28 11:46:07,599 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 2, "method": "session/...nt", "mcpServers": []}}' [151 bytes]
+2026-02-28 11:46:07,599 - __main__ - INFO - Sent request 2: session/new
+2026-02-28 11:46:07,599 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":2,"result":{"sessionId":"...40d0bfd91036b246a38f"}}' [82 bytes]
+2026-02-28 11:46:07,600 - __main__ - INFO - Received response 2
+2026-02-28 11:46:07,600 - __main__ - INFO - Child session created: {'jsonrpc': '2.0', 'id': 2, 'result': {'sessionId': '32740dc5fb0540d0bfd91036b246a38f'}}
+2026-02-28 11:46:07,600 - __main__ - INFO - AgentClient.prompt(session_id=32740dc5fb0540d0bfd91036b246a38f)
+2026-02-28 11:46:07,600 - __main__ - INFO -   prompt: [TextContentBlock(field_meta=None, annotations=None, text='Hello through the bridge!', type='text')]
+2026-02-28 11:46:07,600 - __main__ - INFO - Forwarding prompt to child agent...
+2026-02-28 11:46:07,600 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 3, "method": "session/...e!", "type": "text"}]}}' [183 bytes]
+2026-02-28 11:46:07,600 - __main__ - INFO - Sent request 3: session/prompt
+2026-02-28 11:46:07,601 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [287 bytes]
+2026-02-28 11:46:07,601 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:46:07,601 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}' [59 bytes]
+2026-02-28 11:46:07,601 - __main__ - INFO - Received response 3
+2026-02-28 11:46:07,601 - __main__ - INFO - Child prompt complete: {'jsonrpc': '2.0', 'id': 3, 'result': {'stopReason': 'end_turn'}}
+2026-02-28 11:46:07,601 - __main__ - INFO - Returning PromptResponse with stop_reason=end_turn
+2026-02-28 11:49:19,571 - asyncio - DEBUG - Using selector: EpollSelector
+2026-02-28 11:49:19,571 - __main__ - INFO - Starting AgentClient
+2026-02-28 11:49:19,571 - __main__ - INFO - AgentClient initialized
+2026-02-28 11:49:19,571 - __main__ - INFO - Upstream client connected
+2026-02-28 11:49:22,376 - __main__ - INFO - AgentClient.initialize() called
+2026-02-28 11:49:22,376 - __main__ - INFO -   protocol_version: 1
+2026-02-28 11:49:22,376 - __main__ - INFO -   client_capabilities: field_meta=None fs=FileSystemCapability(field_meta=None, read_text_file=False, write_text_file=False) terminal=False
+2026-02-28 11:49:22,376 - __main__ - INFO -   client_info: None
+2026-02-28 11:49:22,376 - __main__ - INFO - Spawning child agent...
+2026-02-28 11:49:22,376 - __main__ - INFO -   bridge: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/stdio_to_ws.py
+2026-02-28 11:49:22,376 - __main__ - INFO -   child: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/echo_agent.py
+2026-02-28 11:49:22,377 - __main__ - INFO - Bridge spawned (PID: 3688072)
+2026-02-28 11:49:22,377 - __main__ - INFO - Connecting to WebSocket on port 8765...
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - = connection is CONNECTING
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > GET / HTTP/1.1
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > Host: localhost:8765
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > Upgrade: websocket
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > Connection: Upgrade
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > Sec-WebSocket-Key: /FV9CqGqE5f2jrldDox9SQ==
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > Sec-WebSocket-Version: 13
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+2026-02-28 11:49:22,396 - websockets.client - DEBUG - > User-Agent: Python/3.14 websockets/16.0
+2026-02-28 11:49:22,397 - websockets.client - DEBUG - < HTTP/1.1 101 Switching Protocols
+2026-02-28 11:49:22,397 - websockets.client - DEBUG - < Date: Sat, 28 Feb 2026 16:49:22 GMT
+2026-02-28 11:49:22,397 - websockets.client - DEBUG - < Upgrade: websocket
+2026-02-28 11:49:22,397 - websockets.client - DEBUG - < Connection: Upgrade
+2026-02-28 11:49:22,397 - websockets.client - DEBUG - < Sec-WebSocket-Accept: hZnPyeDKGlLpZORhzvRv43ijFgw=
+2026-02-28 11:49:22,397 - websockets.client - DEBUG - < Sec-WebSocket-Extensions: permessage-deflate; server_max_window_bits=12; client_max_window_bits=12
+2026-02-28 11:49:22,397 - websockets.client - DEBUG - < Server: Python/3.14 websockets/16.0
+2026-02-28 11:49:22,398 - websockets.client - DEBUG - = connection is OPEN
+2026-02-28 11:49:22,398 - __main__ - INFO - WebSocket connected
+2026-02-28 11:49:22,398 - __main__ - INFO - Forwarding initialize to child agent...
+2026-02-28 11:49:22,398 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 1, "method": "initiali...}, "clientInfo": null}}' [207 bytes]
+2026-02-28 11:49:22,398 - __main__ - INFO - Sent request 1: initialize
+2026-02-28 11:49:22,399 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}' [55 bytes]
+2026-02-28 11:49:22,399 - __main__ - INFO - Received response 1
+2026-02-28 11:49:22,399 - __main__ - INFO - Child agent initialized: {'jsonrpc': '2.0', 'id': 1, 'result': {'protocolVersion': 1}}
+2026-02-28 11:49:22,399 - __main__ - INFO - Returning InitializeResponse with protocol_version=1
+2026-02-28 11:49:22,400 - __main__ - INFO - AgentClient.new_session(cwd=/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client)
+2026-02-28 11:49:22,400 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 2, "method": "session/...nt", "mcpServers": []}}' [151 bytes]
+2026-02-28 11:49:22,400 - __main__ - INFO - Sent request 2: session/new
+2026-02-28 11:49:22,400 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":2,"result":{"sessionId":"...455e80603e3c9a26862d"}}' [82 bytes]
+2026-02-28 11:49:22,400 - __main__ - INFO - Received response 2
+2026-02-28 11:49:22,400 - __main__ - INFO - Child session created: {'jsonrpc': '2.0', 'id': 2, 'result': {'sessionId': 'd623c19e76c8455e80603e3c9a26862d'}}
+2026-02-28 11:49:22,401 - __main__ - INFO - AgentClient.prompt(session_id=d623c19e76c8455e80603e3c9a26862d)
+2026-02-28 11:49:22,401 - __main__ - INFO -   prompt: [TextContentBlock(field_meta=None, annotations=None, text='Hello through the bridge!', type='text')]
+2026-02-28 11:49:22,401 - __main__ - INFO - Forwarding prompt to child agent...
+2026-02-28 11:49:22,401 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 3, "method": "session/...e!", "type": "text"}]}}' [183 bytes]
+2026-02-28 11:49:22,401 - __main__ - INFO - Sent request 3: session/prompt
+2026-02-28 11:49:22,401 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [287 bytes]
+2026-02-28 11:49:22,401 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:49:22,401 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}' [59 bytes]
+2026-02-28 11:49:22,402 - __main__ - INFO - Received response 3
+2026-02-28 11:49:22,402 - __main__ - INFO - Child prompt complete: {'jsonrpc': '2.0', 'id': 3, 'result': {'stopReason': 'end_turn'}}
+2026-02-28 11:49:22,402 - __main__ - INFO - Returning PromptResponse with stop_reason=end_turn
+2026-02-28 11:56:15,933 - asyncio - DEBUG - Using selector: EpollSelector
+2026-02-28 11:56:15,933 - __main__ - INFO - Starting AgentClient
+2026-02-28 11:56:15,933 - __main__ - INFO - AgentClient initialized
+2026-02-28 11:56:15,933 - __main__ - INFO - Upstream client connected
+2026-02-28 11:56:18,732 - __main__ - INFO - AgentClient.initialize() called
+2026-02-28 11:56:18,732 - __main__ - INFO -   protocol_version: 1
+2026-02-28 11:56:18,732 - __main__ - INFO -   client_capabilities: field_meta=None fs=FileSystemCapability(field_meta=None, read_text_file=False, write_text_file=False) terminal=False
+2026-02-28 11:56:18,732 - __main__ - INFO -   client_info: None
+2026-02-28 11:56:18,732 - __main__ - INFO - Spawning child agent...
+2026-02-28 11:56:18,732 - __main__ - INFO -   bridge: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/stdio_to_ws.py
+2026-02-28 11:56:18,733 - __main__ - INFO -   child: /home/thomas/src/backup/crow-spec/nid/sandbox/agent-client/echo_agent.py
+2026-02-28 11:56:18,734 - __main__ - INFO - Bridge spawned (PID: 3691241)
+2026-02-28 11:56:18,734 - __main__ - INFO - Connecting to WebSocket on port 8765...
+2026-02-28 11:56:18,754 - __main__ - DEBUG - Connection attempt 1 failed, retrying...
+2026-02-28 11:56:19,255 - websockets.client - DEBUG - = connection is CONNECTING
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > GET / HTTP/1.1
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > Host: localhost:8765
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > Upgrade: websocket
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > Connection: Upgrade
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > Sec-WebSocket-Key: FuTGK5NNysoQxZdSznHU/g==
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > Sec-WebSocket-Version: 13
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+2026-02-28 11:56:19,256 - websockets.client - DEBUG - > User-Agent: Python/3.14 websockets/16.0
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - < HTTP/1.1 101 Switching Protocols
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - < Date: Sat, 28 Feb 2026 16:56:19 GMT
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - < Upgrade: websocket
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - < Connection: Upgrade
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - < Sec-WebSocket-Accept: 2OjDT0uPdVyfSRKYcxvQKl3+Idg=
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - < Sec-WebSocket-Extensions: permessage-deflate; server_max_window_bits=12; client_max_window_bits=12
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - < Server: Python/3.14 websockets/16.0
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - = connection is OPEN
+2026-02-28 11:56:19,257 - __main__ - INFO - WebSocket connected
+2026-02-28 11:56:19,257 - __main__ - INFO - Forwarding initialize to child agent...
+2026-02-28 11:56:19,257 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 1, "method": "initiali...}, "clientInfo": null}}' [207 bytes]
+2026-02-28 11:56:19,257 - __main__ - INFO - Sent request 1: initialize
+2026-02-28 11:56:20,173 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":1,"result":{"agentCapabil...},"protocolVersion":1}}' [236 bytes]
+2026-02-28 11:56:20,173 - __main__ - INFO - Received response 1
+2026-02-28 11:56:20,173 - __main__ - INFO - Child agent initialized: {'jsonrpc': '2.0', 'id': 1, 'result': {'agentCapabilities': {'loadSession': True, 'promptCapabilities': {'audio': False, 'embeddedContext': True, 'image': True}}, 'agentInfo': {'name': 'crow', 'title': 'Crow Agent', 'version': '0.1.0'}, 'protocolVersion': 1}}
+2026-02-28 11:56:20,173 - __main__ - INFO - Returning InitializeResponse with protocol_version=1
+2026-02-28 11:56:20,174 - __main__ - INFO - AgentClient.new_session(cwd=/home/thomas/src/backup/crow-spec/nid/sandbox/agent-client)
+2026-02-28 11:56:20,174 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 2, "method": "session/...nt", "mcpServers": []}}' [151 bytes]
+2026-02-28 11:56:20,174 - __main__ - INFO - Sent request 2: session/new
+2026-02-28 11:56:21,159 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":2,"result":{"configOption...f-engineering-c28962"}}' [1607 bytes]
+2026-02-28 11:56:21,159 - __main__ - INFO - Received response 2
+2026-02-28 11:56:21,159 - __main__ - INFO - Child session created: {'jsonrpc': '2.0', 'id': 2, 'result': {'configOptions': [{'currentValue': 'openrouter:anthropic/claude-sonnet-4.6', 'options': [{'description': 'anthropic/claude-sonnet-4.6', 'name': 'claude-sonnet-4.6', 'value': 'openrouter:anthropic/claude-sonnet-4.6'}, {'description': 'deepseek/deepseek-v3.2', 'name': 'deepseek-v3.2', 'value': 'openrouter:deepseek/deepseek-v3.2'}, {'description': 'deepseek/deepseek-v3.2-exp', 'name': 'deepseek-v3.2-exp', 'value': 'openrouter:deepseek/deepseek-v3.2-exp'}, {'description': 'deepseek/deepseek-v3.2-speciale', 'name': 'deepseek-v3.2-speciale', 'value': 'openrouter:deepseek/deepseek-v3.2-speciale'}, {'description': 'google/gemini-3.1-pro-preview', 'name': 'gemini-3.1-pro-preview', 'value': 'openrouter:google/gemini-3.1-pro-preview'}, {'description': 'moonshotai/kimi-k2.5', 'name': 'kimi-k2.5', 'value': 'openrouter:moonshotai/kimi-k2.5'}, {'description': 'openai/gpt-5.3-codex', 'name': 'gpt-5.3-codex', 'value': 'openrouter:openai/gpt-5.3-codex'}, {'description': 'glm-4.5', 'name': 'glm-4.5', 'value': 'zai:glm-4.5'}, {'description': 'glm-4.5-air', 'name': 'glm-4.5-air', 'value': 'zai:glm-4.5-air'}, {'description': 'glm-4.6', 'name': 'glm-4.6', 'value': 'zai:glm-4.6'}, {'description': 'glm-4.7', 'name': 'glm-4.7', 'value': 'zai:glm-4.7'}, {'description': 'glm-5', 'name': 'glm-5', 'value': 'zai:glm-5'}, {'description': 'unsloth/Qwen3.5-122B-A10B-GGUF:Q4_K_M', 'name': 'qwen3.5', 'value': 'llamacpp:unsloth/Qwen3.5-122B-A10B-GGUF:Q4_K_M'}, {'description': 'qwen3.5-plus', 'name': 'qwen3.5-plus', 'value': 'dashscope:qwen3.5-plus'}], 'category': 'model', 'id': 'model', 'name': 'Model', 'type': 'select'}], 'sessionId': 'frisky-flat-nyala-of-engineering-c28962'}}
+2026-02-28 11:56:21,160 - __main__ - INFO - AgentClient.prompt(session_id=frisky-flat-nyala-of-engineering-c28962)
+2026-02-28 11:56:21,160 - __main__ - INFO -   prompt: [TextContentBlock(field_meta=None, annotations=None, text='Hello through the bridge!', type='text')]
+2026-02-28 11:56:21,160 - __main__ - INFO - Forwarding prompt to child agent...
+2026-02-28 11:56:21,160 - websockets.client - DEBUG - > TEXT '{"jsonrpc": "2.0", "id": 3, "method": "session/...e!", "type": "text"}]}}' [190 bytes]
+2026-02-28 11:56:21,160 - __main__ - INFO - Sent request 3: session/prompt
+2026-02-28 11:56:22,719 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [200 bytes]
+2026-02-28 11:56:22,719 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:22,739 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [206 bytes]
+2026-02-28 11:56:22,739 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:22,785 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [207 bytes]
+2026-02-28 11:56:22,785 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:22,829 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [201 bytes]
+2026-02-28 11:56:22,829 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:22,872 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [205 bytes]
+2026-02-28 11:56:22,872 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:22,917 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [200 bytes]
+2026-02-28 11:56:22,917 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:22,961 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [198 bytes]
+2026-02-28 11:56:22,962 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,006 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [199 bytes]
+2026-02-28 11:56:23,006 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,051 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [213 bytes]
+2026-02-28 11:56:23,051 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,097 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [197 bytes]
+2026-02-28 11:56:23,097 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,142 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [195 bytes]
+2026-02-28 11:56:23,143 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,187 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [203 bytes]
+2026-02-28 11:56:23,187 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,230 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [196 bytes]
+2026-02-28 11:56:23,230 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,274 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [199 bytes]
+2026-02-28 11:56:23,274 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,319 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [198 bytes]
+2026-02-28 11:56:23,320 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,364 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [194 bytes]
+2026-02-28 11:56:23,364 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,410 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [199 bytes]
+2026-02-28 11:56:23,410 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,454 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [210 bytes]
+2026-02-28 11:56:23,454 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,498 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [201 bytes]
+2026-02-28 11:56:23,498 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,542 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [201 bytes]
+2026-02-28 11:56:23,542 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,588 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [201 bytes]
+2026-02-28 11:56:23,588 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,634 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [203 bytes]
+2026-02-28 11:56:23,634 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,677 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [199 bytes]
+2026-02-28 11:56:23,677 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,733 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [207 bytes]
+2026-02-28 11:56:23,733 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,766 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [194 bytes]
+2026-02-28 11:56:23,766 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,811 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [197 bytes]
+2026-02-28 11:56:23,811 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,856 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [207 bytes]
+2026-02-28 11:56:23,856 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,903 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [205 bytes]
+2026-02-28 11:56:23,903 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,946 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [203 bytes]
+2026-02-28 11:56:23,946 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:23,992 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [194 bytes]
+2026-02-28 11:56:23,992 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:24,036 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [200 bytes]
+2026-02-28 11:56:24,036 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:24,080 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [222 bytes]
+2026-02-28 11:56:24,081 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:24,127 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [205 bytes]
+2026-02-28 11:56:24,127 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:24,170 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [204 bytes]
+2026-02-28 11:56:24,170 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:24,215 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","method":"session/update","par...agent_message_chunk"}}}' [194 bytes]
+2026-02-28 11:56:24,216 - __main__ - INFO - Forwarding session/update to upstream
+2026-02-28 11:56:24,332 - websockets.client - DEBUG - < TEXT '{"jsonrpc":"2.0","id":3,"result":{"stopReason":"end_turn"}}' [59 bytes]
+2026-02-28 11:56:24,332 - __main__ - INFO - Received response 3
+2026-02-28 11:56:24,332 - __main__ - INFO - Child prompt complete: {'jsonrpc': '2.0', 'id': 3, 'result': {'stopReason': 'end_turn'}}
+2026-02-28 11:56:24,332 - __main__ - INFO - Returning PromptResponse with stop_reason=end_turn

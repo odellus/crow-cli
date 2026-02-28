@@ -66,6 +66,7 @@ class AgentClient(Agent):
         self._pending_requests: dict[int, asyncio.Future] = {}
         self._bridge_process: asyncio.subprocess.Process | None = None
         self._update_task: asyncio.Task | None = None
+        self._cleanup_done: bool = False
 
         logger.info("AgentClient initialized")
 
@@ -86,29 +87,36 @@ class AgentClient(Agent):
             logger.info(f"  protocol_version: {protocol_version}")
             logger.info(f"  client_capabilities: {client_capabilities}")
             logger.info(f"  client_info: {client_info}")
-            
+
             # Spawn child agent + bridge
             await self._spawn_child()
-            
+
             # Connect to bridge via WebSocket
             await self._connect_to_bridge()
-            
+
             # Forward initialize to child agent
             logger.info("Forwarding initialize to child agent...")
-            response = await self._send_request("initialize", {
-                "protocolVersion": protocol_version,
-                "clientCapabilities": client_capabilities or {},
-                "clientInfo": client_info,
-            })
-            
+            response = await self._send_request(
+                "initialize",
+                {
+                    "protocolVersion": protocol_version,
+                    "clientCapabilities": client_capabilities or {},
+                    "clientInfo": client_info,
+                },
+            )
+
             logger.info(f"Child agent initialized: {response}")
-            
+
             # Extract protocol version from response
-            child_protocol_version = response.get("result", {}).get("protocolVersion", protocol_version)
-            
-            logger.info(f"Returning InitializeResponse with protocol_version={child_protocol_version}")
+            child_protocol_version = response.get("result", {}).get(
+                "protocolVersion", protocol_version
+            )
+
+            logger.info(
+                f"Returning InitializeResponse with protocol_version={child_protocol_version}"
+            )
             return InitializeResponse(protocol_version=child_protocol_version)
-        
+
         except Exception as e:
             logger.error(f"Error in initialize: {e}", exc_info=True)
             raise
@@ -154,22 +162,25 @@ class AgentClient(Agent):
         try:
             logger.info(f"AgentClient.prompt(session_id={session_id})")
             logger.info(f"  prompt: {prompt}")
-            
+
             # Forward to child agent
             logger.info("Forwarding prompt to child agent...")
-            response = await self._send_request("session/prompt", {
-                "sessionId": session_id,
-                "prompt": prompt,
-            })
-            
+            response = await self._send_request(
+                "session/prompt",
+                {
+                    "sessionId": session_id,
+                    "prompt": prompt,
+                },
+            )
+
             logger.info(f"Child prompt complete: {response}")
-            
+
             # Extract stop reason from response
             stop_reason = response.get("result", {}).get("stopReason", "end_turn")
-            
+
             logger.info(f"Returning PromptResponse with stop_reason={stop_reason}")
             return PromptResponse(stop_reason=stop_reason)
-        
+
         except Exception as e:
             logger.error(f"Error in prompt: {e}", exc_info=True)
             raise
@@ -212,9 +223,10 @@ class AgentClient(Agent):
             str(self._ws_port),
             "uv",
             "--project",
-            str(here),
+            "/home/thomas/src/backup/nid-backup/crow-cli",
             "run",
-            str(echo_agent),
+            "crow-cli",
+            "acp",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -286,37 +298,37 @@ class AgentClient(Agent):
         """Send JSON-RPC request to child agent and wait for response."""
         self._request_id += 1
         request_id = self._request_id
-        
+
         # Serialize params recursively
         serialized_params = self._serialize_value(params)
-        
+
         request = {
             "jsonrpc": "2.0",
             "id": request_id,
             "method": method,
             "params": serialized_params,
         }
-        
+
         # Create future to wait for response
         future = asyncio.get_event_loop().create_future()
         self._pending_requests[request_id] = future
-        
+
         # Send request
         await self._ws.send(json.dumps(request))
         logger.info(f"Sent request {request_id}: {method}")
-        
+
         # Wait for response
         response = await future
         logger.info(f"Received response {request_id}")
-        
+
         if "error" in response:
             raise RuntimeError(f"Request failed: {response['error']}")
-        
+
         return response
-    
+
     def _serialize_value(self, value: Any) -> Any:
         """Recursively serialize a value (Pydantic models → dicts)."""
-        if hasattr(value, 'model_dump'):
+        if hasattr(value, "model_dump"):
             # Pydantic model
             return value.model_dump(exclude_none=True)
         elif isinstance(value, dict):
@@ -333,13 +345,13 @@ class AgentClient(Agent):
         """Send JSON-RPC notification to child agent (no response expected)."""
         # Serialize params recursively
         serialized_params = self._serialize_value(params)
-        
+
         notification = {
             "jsonrpc": "2.0",
             "method": method,
             "params": serialized_params,
         }
-        
+
         await self._ws.send(json.dumps(notification))
         logger.info(f"Sent notification: {method}")
 

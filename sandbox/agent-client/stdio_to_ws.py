@@ -178,7 +178,9 @@ async def main():
         "--host", default="localhost", help="WebSocket host (default: localhost)"
     )
     parser.add_argument(
-        "command", nargs="+", help="Command to spawn (e.g., 'python echo_agent.py')"
+        "command",
+        nargs=argparse.REMAINDER,
+        help="Command to spawn (e.g., 'uv run echo_agent.py') - all remaining args",
     )
 
     args = parser.parse_args()
