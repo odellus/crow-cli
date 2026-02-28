@@ -27,6 +27,7 @@ from openai._exceptions import APITimeoutError
 from crow_cli.agent.compact import compact
 from crow_cli.agent.configure import Config
 from crow_cli.agent.context import maximal_deserialize
+from crow_cli.agent.prompt import normalize_blocks
 from crow_cli.agent.session import Session
 from crow_cli.agent.tools import (
     execute_acp_edit,
@@ -74,24 +75,7 @@ async def send_request(
                 # If content is a list of content blocks, keep it as-is (for multimodal)
                 # But if it's a list with only text blocks and they're in the wrong format, fix it
                 if isinstance(content, list):
-                    # Check if this is already in the correct OpenAI format
-                    # (e.g., [{"type": "text", "text": "..."}] or [{"type": "image_url", ...}])
-                    # If the blocks have "text" keys, they're already in correct format
-                    # If they're just strings, we need to convert them
-                    normalized_blocks = []
-                    for block in content:
-                        if isinstance(block, str):
-                            # Old format: just a string
-                            normalized_blocks.append({"type": "text", "text": block})
-                        elif isinstance(block, dict):
-                            # Already in correct format, keep as-is
-                            if (
-                                block.get("type") == "text"
-                                and not block.get("text", "").strip()
-                            ):
-                                continue
-                            normalized_blocks.append(block)
-                    normalized_msg["content"] = normalized_blocks
+                    normalized_msg["content"] = normalize_blocks(content)
                 normalized_messages.append(normalized_msg)
 
             return await llm.chat.completions.create(

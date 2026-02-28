@@ -5,7 +5,7 @@ description:    compact the middle over the conversation
 
 from openai import AsyncOpenAI
 
-from crow_cli.agent.prompt import render_template
+from crow_cli.agent.prompt import normalize_blocks, render_template
 from crow_cli.agent.session import Session
 
 MAX_OUTPUT_TOKENS = 8192
@@ -29,6 +29,21 @@ def get_last_user_idx(messages: list[dict[str, str]]) -> int:
     return -1
 
 
+def remove_empty_text(messages: list[dict]) -> list[dict]:
+    output_messages = []
+    for message in messages:
+        role = message.get("role")
+        if role not in ["user", "assistant"]:
+            # Can only happen with user messages
+            output_messages.append(message)
+        else:
+            content = message.get("content")
+            if isinstance(content, list):
+                content = normalize_blocks(content)
+            output_messages.append(dict(role=role, content=content))
+    return output_messages
+
+
 async def non_streaming_request(
     model: str,
     messages: list[dict],
@@ -36,6 +51,7 @@ async def non_streaming_request(
     request_params: dict,
     llm: AsyncOpenAI,
 ) -> dict:
+    messages = remove_empty_text(messages)
     response = await llm.chat.completions.create(
         model=model,
         messages=messages,

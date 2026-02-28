@@ -1,5 +1,8 @@
 """
-Prompt utilities
+Template rendering and content normalization utilities.
+
+Handles Jinja2 prompt templates and converts ACP content blocks
+(text, image, resource_link) to OpenAI-compatible format.
 """
 
 import base64
@@ -143,3 +146,17 @@ async def normalize_prompt(
                 user_content.append({"type": "text", "text": fetched})
 
     return user_content
+
+
+def normalize_blocks(content):
+    normalized_blocks = []
+    for block in content:
+        if isinstance(block, str):
+            # Old format: just a string
+            normalized_blocks.append({"type": "text", "text": block})
+        elif isinstance(block, dict):
+            # Already in correct format, keep as-is
+            if block.get("type") == "text" and not block.get("text", "").strip():
+                continue
+            normalized_blocks.append(block)
+    return normalized_blocks

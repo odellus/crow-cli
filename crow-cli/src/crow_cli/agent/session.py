@@ -122,7 +122,7 @@ class Session:
         thinking: list[str],
         content: list[str],
         tool_call_inputs: list[dict],
-        logger: Logging,
+        logger: Logger,
         usage: dict | None = None,
     ):
         """
