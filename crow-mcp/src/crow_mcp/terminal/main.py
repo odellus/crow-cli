@@ -34,10 +34,11 @@ async def terminal(
     timeout: float | None = None,
     reset: bool = False,
 ) -> str:
-    """Execute a bash command in a persistent shell session.
+    """Execute a bash command in a shell session.
 
-    Commands execute in a persistent shell session where environment variables,
-    virtual environments, and working directory persist between commands.
+    IMPORTANT: Each call starts a FRESH shell at the original working directory.
+    Working directory, environment variables, and virtual environments do NOT
+    persist between calls. Always chain commands with && or ; in a single call.
 
     Args:
         command: The bash command to execute. Can be:
@@ -48,7 +49,8 @@ async def terminal(
                   If False (default), execute as new command.
         timeout: Max seconds to wait. If omitted, uses soft timeout
                  (pauses after 30s of no output and asks to continue).
-        reset: If True, kill terminal and start fresh. Use if you think the terminal tool is broken for the session, odds are it just needs a restart.  Loses all environment variables, venv, etc. Cannot use with is_input.
+        reset: If True, kill terminal and start fresh. Use if you think
+               the terminal tool is broken for the session. Cannot use with is_input.
 
     Returns:
         Command output with metadata (exit code, working directory, etc.)
@@ -57,17 +59,18 @@ async def terminal(
         # Basic command
         terminal("ls -la")
 
-        # Change directory (persists)
+        # WRONG - directory change does NOT persist
         terminal("cd /tmp")
-        terminal("pwd")  # Shows /tmp
+        terminal("pwd")  # Shows ORIGINAL directory, NOT /tmp
 
-        # Set environment variable (persists)
-        terminal("export MY_VAR=hello")
-        terminal("echo $MY_VAR")  # Shows "hello"
+        # CORRECT - chain commands in one call
+        terminal("cd /tmp && pwd")  # Shows /tmp
 
-        # Activate virtual environment (persists)
-        terminal("source .venv/bin/activate")
-        terminal("which python")  # Shows .venv/bin/python
+        # Set environment variable and use it (same call)
+        terminal("export MY_VAR=hello && echo $MY_VAR")
+
+        # Activate venv and run command (same call)
+        terminal("source .venv/bin/activate && which python")
 
         # Long-running command with timeout
         terminal("npm install", timeout=120)
@@ -75,7 +78,7 @@ async def terminal(
         # Interrupt running command
         terminal("C-c")
 
-        # Reset terminal (lose all state)
+        # Reset terminal
         terminal("", reset=True)
     """
     try:

@@ -9,11 +9,14 @@ wheels/
 # Virtual environments
 .venv
 
-
 # keys
 .env
 
 # test database
 *.db
+
+# MyST build output
+docs/_build/
+_site/
 
 sandbox/crow-editor/frontend/node_modules

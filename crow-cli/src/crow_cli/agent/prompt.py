@@ -81,7 +81,9 @@ async def normalize_prompt(
                 user_content.append({"type": "text", "text": text})
         elif _type == "resource":
             resource = get_attr(block, "resource")
+            uri = get_attr(resource, "uri")
             text = get_attr(resource, "text")
+            text = f"file_location:{uri}\n{text}"
             # Skip empty text blocks - API requires non-empty text
             if text:
                 user_content.append({"type": "text", "text": text})
