@@ -49,7 +49,7 @@ class SearchResponse(BaseModel):
 
 @mcp.tool
 async def web_search(queries: list[str], limit: int = 10) -> str:
-    """## Search Tool Instructions
+    f"""## Search Tool Instructions
     **Search the internet. USE THIS LIBERALLY.**
     If you are:
     - Uncertain about the user's query
@@ -65,10 +65,10 @@ async def web_search(queries: list[str], limit: int = 10) -> str:
     - To find recent results, add timeframes to your query (e.g., "rust 2024", "next.js news this week")
     - If a snippet looks promising but is cut off, use the fetch tool to pull down the full page
     **Arguments:**
-    - `query: str` - Your search query for the search engine
+    - `queries: list[str]` - Your search queries for the search engine
     - `limit: int = 5` - Optional, control the number of results
     **Example use:**
-    result: str = search(query="How to make key lime pie")
+    results: list[str] = search(queries=["How to make key lime pie", "chocolate dipped key lime pie on a stick"])
     """
     searxng_url = os.getenv("SEARXNG_URL", "http://localhost:2946")
     client = AsyncClient(base_url=searxng_url)
