@@ -5,10 +5,12 @@ One row = One message. No conv_index gymnastics. No reconstruction headaches.
 Just serialize the message dict, deserialize it back.
 """
 
+import json
 from logging import Logger
 from typing import Any
 from uuid import uuid4
 
+import pandas as pd
 from coolname import generate_slug
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session as SQLAlchemySession
@@ -16,6 +18,36 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from crow_cli.agent.db import Base, Message, Prompt, create_database
 from crow_cli.agent.db import Session as SessionModel
 from crow_cli.agent.prompt import render_template
+
+
+def get_session_by_cwd(cwd, db_uri):
+    engine = create_engine(db_uri)
+    session_qry = "select * from sessions;"
+    dfs = pd.read_sql(session_qry, engine)
+    dfs["cwd"] = df.prompt_args.apply(lambda ex: json.loads(ex).get("workspace"))
+    session_ids = dfs[dfs.cwd == cwd]
+    created_ats = session_ids.created_at.tolist()
+    session_ids = session_ids.session_id.tolist()
+    sess2created = {sid: cr8d for (sid, cr8d) in zip(session_ids, created_ats)}
+    sess_info = []
+    for sid, cr8d in sess2created.items():
+        print(sid)
+        print(cr8d)
+        msgs_qry = f"select * from messages where session_id='{sid}';"
+        dfm = pd.read_sql(msgs_qry, engine)
+        if len(dfm) > 2:
+            title = json.loads(dfm.iloc[1].data).get("content")[:50]
+        else:
+            title = "Untitled Chat"
+        sess_info.append(
+            dict(
+                cwd=cwd,
+                session_id=sid,
+                title=title,
+                updated_at=pd.to_datetime(cr8d).isoformat(),
+            )
+        )
+    return sess_info
 
 
 def get_coolname() -> str:

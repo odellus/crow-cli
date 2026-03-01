@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pandas as pd
 from acp import (
     PROTOCOL_VERSION,
     Agent,
@@ -41,10 +42,12 @@ from acp.schema import (
     HttpMcpServer,
     ImageContentBlock,
     Implementation,
+    ListSessionsResponse,
     McpServerStdio,
     PromptCapabilities,
     ResourceContentBlock,
     SessionConfigOption,
+    SessionInfo,
     SetSessionConfigOptionResponse,
     SseMcpServer,
     TextContentBlock,
@@ -52,13 +55,13 @@ from acp.schema import (
 from fastmcp import Client as MCPClient
 
 from crow_cli.agent.configure import Config, get_default_config_dir
-from crow_cli.agent.context import context_fetcher, get_directory_tree, uri_to_path
+from crow_cli.agent.context import get_directory_tree
 from crow_cli.agent.llm import configure_llm
 from crow_cli.agent.logger import setup_logger
 from crow_cli.agent.mcp_client import create_mcp_client_from_acp, get_tools
 from crow_cli.agent.prompt import normalize_prompt
 from crow_cli.agent.react import react_loop
-from crow_cli.agent.session import Session, lookup_or_create_prompt
+from crow_cli.agent.session import Session, get_session_by_cwd, lookup_or_create_prompt
 
 
 class AcpAgent(Agent):
@@ -197,9 +200,9 @@ class AcpAgent(Agent):
                 ),
             ),
             agent_info=Implementation(
-                name="crow",
-                title="Crow Agent",
-                version="0.1.0",
+                name="crow-cli",
+                title="crow-cli",
+                version="0.1.4",
             ),
         )
 
@@ -585,6 +588,16 @@ class AcpAgent(Agent):
         self._logger.info("Cleaning up Agent resources")
         await self._exit_stack.aclose()
         self._logger.info("Cleanup complete")
+
+    async def list_sessions(
+        self, cursor: str | None = None, cwd: str | None = None, **kwargs: Any
+    ) -> ListSessionsResponse:
+        self._logger.info("Listing sessions for working directory: {cwd}", cwd=cwd)
+        if cwd is None:
+            return ListSessionsResponse(sessions=[], next_cursor=None)
+        sessions_info = get_session_by_cwd(cwd, self._db_uri)
+        sessions = [SessionInfo(**session) for session in sessions_info]
+        return ListSessionsResponse(sessions=sessions, next_cursor=None)
 
 
 async def agent_run() -> None:
