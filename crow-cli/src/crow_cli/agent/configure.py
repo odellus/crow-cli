@@ -16,7 +16,7 @@ CROW_DIR = ".crow"
 
 def get_default_config_dir() -> Path:
     config_dir = Path.home() / CROW_DIR
-    config_src = Path(__file__).parents[3]
+    config_src = Path(__file__).parents[3] / "config"
     if not os.path.exists(config_dir):
         shutil.copytree(config_src, config_dir)
         log_dir = config_dir / "logs"
