@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import re
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -19,6 +21,8 @@ from acp import (
 from acp.interfaces import Client
 from acp.schema import (
     AudioContentBlock,
+    AvailableCommand,
+    AvailableCommandsUpdate,
     ClientCapabilities,
     EmbeddedResourceContentBlock,
     HttpMcpServer,
@@ -31,16 +35,160 @@ from acp.schema import (
     TextContentBlock,
 )
 
+# Configure logging to file ONLY - no stderr output to avoid corrupting stdio protocol
+log_file = Path("/home/thomas/src/projects/mcp-testing/sandbox/crow-acp-learning/echo-agent.log")
+log_file.parent.mkdir(parents=True, exist_ok=True)
+
+# Clear any existing handlers and configure file-only logging
+logging.root.handlers = []
 logging.basicConfig(
-    filename="/home/thomas/src/projects/mcp-testing/sandbox//crow-acp-learning/echo-agent.log",
+    filename=str(log_file),
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,
 )
+# Ensure no console output
+logging.root.propagate = False
+
+
+# Type for slash command functions
+type EchoSlashCmdFunc = Callable[[str, str], None | Awaitable[None]]
+"""A function that runs as an EchoAgent slash command."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SlashCommand[F: Callable[..., None | Awaitable[None]]]:
+    name: str
+    description: str
+    func: F
+    aliases: list[str]
+
+    def slash_name(self):
+        """/name (aliases)"""
+        if self.aliases:
+            return f"/{self.name} ({', '.join(self.aliases)})"
+        return f"/{self.name}"
+
+
+class SlashCommandRegistry[F: Callable[..., None | Awaitable[None]]]:
+    """Registry for slash commands."""
+
+    def __init__(self) -> None:
+        self._commands: dict[str, SlashCommand[F]] = {}
+        """Primary name -> SlashCommand"""
+        self._command_aliases: dict[str, SlashCommand[F]] = {}
+        """Primary name or alias -> SlashCommand"""
+
+    def command(
+        self,
+        func: F | None = None,
+        *,
+        name: str | None = None,
+        aliases: list[str] | None = None,
+    ) -> F | Callable[[F], F]:
+        """Decorator to register a slash command with optional custom name and aliases."""
+
+        def _register(f: F) -> F:
+            primary = name or f.__name__
+            alias_list = list(aliases) if aliases else []
+
+            cmd = SlashCommand[F](
+                name=primary,
+                description=(f.__doc__ or "").strip(),
+                func=f,
+                aliases=alias_list,
+            )
+
+            self._commands[primary] = cmd
+            self._command_aliases[primary] = cmd
+
+            for alias in alias_list:
+                self._command_aliases[alias] = cmd
+
+            return f
+
+        if func is not None:
+            return _register(func)
+        return _register
+
+    def find_command(self, name: str) -> SlashCommand[F] | None:
+        return self._command_aliases.get(name)
+
+    def list_commands(self) -> list[SlashCommand[F]]:
+        """Get all unique primary slash commands."""
+        return list(self._commands.values())
+
+
+def parse_slash_command_call(user_input: str) -> tuple[str, str] | None:
+    """
+    Parse a slash command call from user input.
+
+    Returns:
+        Tuple of (command_name, args) if a slash command is found, else None.
+    """
+    user_input = user_input.strip()
+    if not user_input or not user_input.startswith("/"):
+        return None
+
+    name_match = re.match(r"^\/([a-zA-Z0-9_-]+)", user_input)
+
+    if not name_match:
+        return None
+
+    command_name = name_match.group(1)
+    if (
+        len(user_input) > name_match.end()
+        and not user_input[name_match.end()].isspace()
+    ):
+        return None
+    args = user_input[name_match.end() :].lstrip()
+    return (command_name, args)
+
+
+# Global slash command registry for EchoAgent
+registry = SlashCommandRegistry[EchoSlashCmdFunc]()
+
+
+@registry.command
+async def help(args: str, session_id: str):
+    """Show available slash commands"""
+    commands = registry.list_commands()
+    lines = ["Available slash commands:"]
+    for cmd in commands:
+        lines.append(f"  {cmd.slash_name()} - {cmd.description}")
+    return "\n".join(lines)
+
+
+@registry.command(aliases=["cls"])
+async def clear(args: str, session_id: str):
+    """Clear the session context"""
+    logging.info(f"Clear command received for session {session_id}")
+    return "Session context cleared."
+
+
+@registry.command
+async def stop(args: str, session_id: str):
+    """Stop current operation"""
+    logging.info(f"Stop command received for session {session_id}")
+    return "Operation stopped."
+
+
+@registry.command
+async def info(args: str, session_id: str):
+    """Show session information"""
+    logging.info(f"Info command received for session {session_id}")
+    return f"Session ID: {session_id}\nActive sessions: 1"
+
+
+@registry.command
+async def echo(args: str, session_id: str):
+    """Echo back your message. Usage: /echo <message>"""
+    return f"Echo: {args}" if args else "Echo: (no message)"
 
 
 class EchoAgent(Agent):
     _conn: Client
-    sessions: {}
+    sessions: dict = {}
     _cancel_events: dict[str, asyncio.Event] = {}  # session_id -> cancel_event
 
     def on_connect(self, conn: Client) -> None:
@@ -81,6 +229,31 @@ class EchoAgent(Agent):
                 ],
             )
         )
+
+        # Register available slash commands with the client
+        available_commands = [
+            AvailableCommand(name=cmd.name, description=cmd.description)
+            for cmd in registry.list_commands()
+        ]
+        logging.info(f"Registered {len(available_commands)} commands for session {session_id}")
+
+        # Send available commands update to client asynchronously after returning response
+        # Using asyncio.create_task() ensures the response is returned immediately
+        # and the notification is sent in the background
+        if self._conn is not None:
+            logging.info(f"Sending available commands update for session {session_id}")
+            asyncio.create_task(
+                self._conn.session_update(
+                    session_id=session_id,
+                    update=AvailableCommandsUpdate(
+                        session_update="available_commands_update",
+                        available_commands=available_commands,
+                    ),
+                )
+            )
+        else:
+            logging.warning(f"Connection is None, cannot send available commands update for session {session_id}")
+
         return NewSessionResponse(
             session_id=session_id, config_options=[session_config_options]
         )
@@ -125,6 +298,33 @@ class EchoAgent(Agent):
                     if isinstance(block, dict)
                     else getattr(block, "text", "")
                 )
+
+                # Check for slash commands
+                parsed = parse_slash_command_call(text)
+                if parsed:
+                    command_name, args = parsed
+                    cmd = registry.find_command(command_name)
+                    if cmd:
+                        # Execute the command
+                        result = await cmd.func(args, session_id)
+                        chunk = update_agent_message(text_block(result))
+                        chunk.field_meta = {"echo": True, "slash_command": True}
+                        chunk.content.field_meta = {"echo": True, "slash_command": True}
+                        await self._conn.session_update(
+                            session_id=session_id, update=chunk, source="echo_agent"
+                        )
+                        return PromptResponse(stop_reason="end_turn")
+                    else:
+                        # Unknown command
+                        response = f"Unknown command: /{command_name}. Type /help for available commands."
+                        chunk = update_agent_message(text_block(response))
+                        chunk.field_meta = {"echo": True}
+                        chunk.content.field_meta = {"echo": True}
+                        await self._conn.session_update(
+                            session_id=session_id, update=chunk, source="echo_agent"
+                        )
+                        return PromptResponse(stop_reason="end_turn")
+
                 text_list.append(text)
             elif _type == "resource_link":
                 logging.info(f"block type: {type(block)}")
