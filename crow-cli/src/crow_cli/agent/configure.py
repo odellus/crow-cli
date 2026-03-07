@@ -99,6 +99,8 @@ class Config:
     MAX_COMPACT_TOKENS: int = 120000
     N_STEPS_BACK_COMPACT: int = 8
 
+    MAX_TOKENS: int = 38192
+
     @property
     def log_path(self) -> str:
         return str(self.config_dir / "logs" / "crow-cli.log")
@@ -182,6 +184,7 @@ class Config:
             "FETCH_TOOL": str,
             "MAX_COMPACT_TOKENS": int,
             "N_STEPS_BACK_COMPACT": int,
+            "MAX_TOKENS": int,
         }
         overrides = {}
         for key, typ in _OVERRIDABLE.items():

@@ -42,6 +42,7 @@ async def send_request(
     llm: AsyncOpenAI,
     session: Session,
     tools: list[dict],
+    max_tokens: int,
     max_retries: int = 3,
     retry_delay: float = 1.0,
 ):
@@ -83,7 +84,7 @@ async def send_request(
                 messages=normalized_messages,
                 tools=tools,
                 stream=True,
-                max_tokens=8192,
+                max_tokens=max_tokens,
                 parallel_tool_calls=True,
             )
         except APITimeoutError as e:
@@ -426,6 +427,7 @@ async def react_loop(
             llm,
             session,
             tools,
+            config.MAX_TOKENS,
         )
         state_accumulator = state_accumulators.get(
             session_id, {"thinking": [], "content": [], "tool_call_inputs": []}
