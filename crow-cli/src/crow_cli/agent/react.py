@@ -123,8 +123,7 @@ def process_chunk(
     thinking: list[str],
     content: list[str],
     tool_calls: dict,
-    tool_call_id: str | None,
-) -> tuple[list[str], list[str], dict, str | None, tuple[str | None, Any]]:
+) -> tuple[list[str], list[str], dict, tuple[str | None, Any]]:
     """
     Process a single streaming chunk.
 
@@ -132,14 +131,14 @@ def process_chunk(
         chunk: Streaming chunk from LLM
         thinking: Accumulated thinking tokens
         content: Accumulated content tokens
-        tool_calls: Accumulated tool calls
-        tool_call_id: Current tool call ID
+        tool_calls: Accumulated tool calls (dict keyed by index)
 
     Returns:
-        Tuple of (thinking, content, tool_calls, tool_call_id, new_token)
+        Tuple of (thinking, content, tool_calls, new_token)
     """
     delta = chunk.choices[0].delta
     new_token = (None, None)
+
     if not delta.tool_calls:
         if not hasattr(delta, "reasoning_content"):
             verbal_chunk = delta.content
@@ -153,23 +152,30 @@ def process_chunk(
                 new_token = ("thinking", reasoning_chunk)
     else:
         for call in delta.tool_calls:
-            if call.id is not None:
-                tool_call_id = call.id
-                if call.id not in tool_calls:
-                    tool_calls[call.id] = {
-                        "function_name": call.function.name,
-                        "arguments": [call.function.arguments],
-                    }
-                    new_token = (
-                        "tool_call",
-                        (call.function.name, call.function.arguments),
-                    )
-            else:
-                arg_fragment = call.function.arguments
-                tool_calls[tool_call_id]["arguments"].append(arg_fragment)
-                new_token = ("tool_args", arg_fragment)
+            index = call.index
 
-    return thinking, content, tool_calls, tool_call_id, new_token
+            # Initialize the dictionary for this index if it doesn't exist
+            if index not in tool_calls:
+                tool_calls[index] = {"id": "", "function_name": "", "arguments": []}
+
+            # Update fields if they are present in this delta
+            if call.id:
+                tool_calls[index]["id"] = call.id
+            if call.function and call.function.name:
+                tool_calls[index]["function_name"] = call.function.name
+                new_token = (
+                    "tool_call",
+                    (call.function.name, call.function.arguments or ""),
+                )
+
+            if call.function and call.function.arguments:
+                arg_fragment = call.function.arguments
+                tool_calls[index]["arguments"].append(arg_fragment)
+                # Only yield args if we didn't just yield the initial tool_call token above
+                if new_token[0] != "tool_call":
+                    new_token = ("tool_args", arg_fragment)
+
+    return thinking, content, tool_calls, new_token
 
 
 def process_tool_call_inputs(tool_calls: dict) -> list[dict]:
@@ -177,22 +183,23 @@ def process_tool_call_inputs(tool_calls: dict) -> list[dict]:
     Process tool call inputs into OpenAI format.
 
     Args:
-        tool_calls: Dictionary of tool calls
+        tool_calls: Dictionary of tool calls keyed by index
 
     Returns:
         List of tool call objects in OpenAI format
     """
     tool_call_inputs = []
-    for tool_call_id, tool_call in tool_calls.items():
+    # tool_calls is now a dict keyed by the integer index from the stream
+    for index, tool_call in sorted(tool_calls.items()):
         tool_call_inputs.append(
-            {
-                "id": tool_call_id,
-                "type": "function",
-                "function": {
-                    "name": tool_call["function_name"],
-                    "arguments": "".join(tool_call["arguments"]),
-                },
-            }
+            dict(
+                id=tool_call["id"],
+                type="function",
+                function=dict(
+                    name=tool_call["function_name"],
+                    arguments="".join(tool_call["arguments"]),
+                ),
+            )
         )
     return tool_call_inputs
 
@@ -211,7 +218,7 @@ async def process_response(response, state_accumulator: dict):
     Returns:
         Tuple of (thinking, content, tool_call_inputs, usage) when done
     """
-    thinking, content, tool_calls, tool_call_id = [], [], {}, None
+    thinking, content, tool_calls = [], [], {}
     final_usage = None
     # we need this in case we cancel mid-stream it all gets persisted anyway
     state_accumulator.update(
@@ -219,7 +226,6 @@ async def process_response(response, state_accumulator: dict):
             "thinking": thinking,
             "content": content,
             "tool_calls": tool_calls,
-            "tool_call_inputs": [],
         }
     )
     async for chunk in response:
@@ -229,8 +235,8 @@ async def process_response(response, state_accumulator: dict):
                 "completion_tokens": chunk.usage.completion_tokens,
                 "total_tokens": chunk.usage.total_tokens,
             }
-        thinking, content, tool_calls, tool_call_id, new_token = process_chunk(
-            chunk, thinking, content, tool_calls, tool_call_id
+        thinking, content, tool_calls, new_token = process_chunk(
+            chunk, thinking, content, tool_calls
         )
         state_accumulator["thinking"] = thinking
         state_accumulator["content"] = content
@@ -238,9 +244,9 @@ async def process_response(response, state_accumulator: dict):
         msg_type, token = new_token
         if msg_type:
             yield msg_type, token
-    tool_call_inputs = process_tool_call_inputs(tool_calls)
-    state_accumulator["tool_call_inputs"] = tool_call_inputs
-    yield "final", (thinking, content, tool_call_inputs, final_usage)
+
+    # Yield final result as a special chunk
+    yield "final", (thinking, content, process_tool_call_inputs(tool_calls), final_usage)
 
 
 async def execute_tool_calls(
@@ -417,7 +423,7 @@ async def react_loop(
             config.MAX_TOKENS,
         )
         state_accumulator = state_accumulators.get(
-            session_id, {"thinking": [], "content": [], "tool_call_inputs": []}
+            session_id, {"thinking": [], "content": [], "tool_calls": {}}
         )
         thinking, content, tool_call_inputs, usage = [], [], [], None
         try:
@@ -430,10 +436,11 @@ async def react_loop(
         except asyncio.CancelledError:
             logger.info("React loop cancelled mid-stream")
 
+            tool_call_inputs = process_tool_call_inputs(state_accumulator["tool_calls"])
             session.add_assistant_response(
                 state_accumulator["thinking"],
                 state_accumulator["content"],
-                state_accumulator["tool_call_inputs"],
+                tool_call_inputs,
                 logger,
                 usage,
             )

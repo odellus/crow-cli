@@ -36,11 +36,8 @@ def setup_mcp_client():
             "mcpServers": {
                 "crow-mcp": {
                     "transport": "stdio",
-                    "command": "uv",
+                    "command": "uvx",
                     "args": [
-                        "--project",
-                        "/home/thomas/src/nid/crow-mcp",
-                        "run",
                         "crow-mcp",
                     ],
                 }
@@ -79,9 +76,10 @@ async def send_request(messages, model, tools, lm):
         raise ValueError(f"Error sending request: {e}")
 
 
-def process_chunk(chunk, thinking, content, tool_calls, tool_call_id):
+def process_chunk(chunk, thinking, content, tool_calls):
     delta = chunk.choices[0].delta
     new_token = (None, None)
+
     if not delta.tool_calls:
         if not hasattr(delta, "reasoning_content"):
             verbal_chunk = delta.content
@@ -95,43 +93,54 @@ def process_chunk(chunk, thinking, content, tool_calls, tool_call_id):
                 new_token = ("thinking", reasoning_chunk)
     else:
         for call in delta.tool_calls:
-            if call.id is not None:
-                tool_call_id = call.id
-                if call.id not in tool_calls:
-                    tool_calls[call.id] = dict(
-                        function_name=call.function.name,
-                        arguments=[call.function.arguments],
-                    )
-                    new_token = (
-                        "tool_call",
-                        (call.function.name, call.function.arguments),
-                    )
-            else:
+            index = call.index
+
+            # Initialize the dictionary for this index if it doesn't exist
+            if index not in tool_calls:
+                tool_calls[index] = {"id": "", "function_name": "", "arguments": []}
+
+            # Update fields if they are present in this delta
+            if call.id:
+                tool_calls[index]["id"] = call.id
+            if call.function and call.function.name:
+                tool_calls[index]["function_name"] = call.function.name
+                new_token = (
+                    "tool_call",
+                    (call.function.name, call.function.arguments or ""),
+                )
+
+            if call.function and call.function.arguments:
                 arg_fragment = call.function.arguments
-                tool_calls[tool_call_id]["arguments"].append(arg_fragment)
-                new_token = ("tool_args", arg_fragment)
-    return thinking, content, tool_calls, tool_call_id, new_token
+                tool_calls[index]["arguments"].append(arg_fragment)
+                # Only yield args if we didn't just yield the initial tool_call token above
+                if new_token[0] != "tool_call":
+                    new_token = ("tool_args", arg_fragment)
+
+    return thinking, content, tool_calls, new_token
 
 
 async def process_response(response):
-    thinking, content, tool_calls, tool_call_id = [], [], {}, None
+    thinking, content, tool_calls = [], [], {}
     async for chunk in response:
-        thinking, content, tool_calls, tool_call_id, new_token = process_chunk(
-            chunk, thinking, content, tool_calls, tool_call_id
+        # tool_call_id is removed entirely from the inputs and outputs
+        thinking, content, tool_calls, new_token = process_chunk(
+            chunk, thinking, content, tool_calls
         )
         msg_type, token = new_token
         if msg_type:
             yield msg_type, token
-    # Yield final result as a special chunk instead of returning
+
+    # Yield final result as a special chunk
     yield "final", (thinking, content, process_tool_call_inputs(tool_calls))
 
 
 def process_tool_call_inputs(tool_calls):
     tool_call_inputs = []
-    for tool_call_id, tool_call in tool_calls.items():
+    # tool_calls is now a dict keyed by the integer index from the stream
+    for index, tool_call in sorted(tool_calls.items()):
         tool_call_inputs.append(
             dict(
-                id=tool_call_id,
+                id=tool_call["id"],
                 type="function",
                 function=dict(
                     name=tool_call["function_name"],
@@ -223,7 +232,9 @@ async def main():
     final_history = []
     async with mcp_client:
         tools = await get_tools(mcp_client)
-        async for chunk in react_loop(messages, mcp_client, lm, "qwen3.5-plus", tools):
+        async for chunk in react_loop(
+            messages, mcp_client, lm, "accounts/fireworks/models/minimax-m2p5", tools
+        ):
             print(chunk)
             # if chunk["type"] == "content":
             #     print(chunk["token"], end="", flush=True)
