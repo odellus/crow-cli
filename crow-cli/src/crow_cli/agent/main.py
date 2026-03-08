@@ -39,6 +39,8 @@ from acp.schema import (
     AgentCapabilities,
     AudioContentBlock,
     AuthMethod,
+    AvailableCommand,
+    AvailableCommandsUpdate,
     ClientCapabilities,
     EmbeddedResourceContentBlock,
     HttpMcpServer,
@@ -51,11 +53,13 @@ from acp.schema import (
     SessionConfigOption,
     SessionInfo,
     SetSessionConfigOptionResponse,
+    SetSessionModeResponse,
     SseMcpServer,
     TextContentBlock,
 )
 from fastmcp import Client as MCPClient
 
+from crow_cli.agent.compact import compact
 from crow_cli.agent.configure import Config, get_default_config_dir
 from crow_cli.agent.context import get_directory_tree
 from crow_cli.agent.llm import configure_llm
@@ -64,6 +68,11 @@ from crow_cli.agent.mcp_client import create_mcp_client_from_acp, get_tools
 from crow_cli.agent.prompt import normalize_prompt
 from crow_cli.agent.react import react_loop
 from crow_cli.agent.session import Session, get_session_by_cwd, lookup_or_create_prompt
+from crow_cli.agent.slash import (
+    _SLASH_COMMANDS,
+    parse_slash_command,
+    register_slash_command,
+)
 
 
 class AcpAgent(Agent):
@@ -337,6 +346,22 @@ class AcpAgent(Agent):
 
         config_options = self._get_config_options(session.session_id)
 
+        # Send available commands update asynchronously
+        if self._conn is not None:
+            available_commands = [
+                AvailableCommand(name=cmd["name"], description=cmd["description"])
+                for cmd in _SLASH_COMMANDS
+            ]
+            asyncio.create_task(
+                self._conn.session_update(
+                    session_id=session.session_id,
+                    update=AvailableCommandsUpdate(
+                        session_update="available_commands_update",
+                        available_commands=available_commands,
+                    ),
+                )
+            )
+
         return NewSessionResponse(
             session_id=session.session_id, config_options=config_options
         )
@@ -486,11 +511,43 @@ class AcpAgent(Agent):
 
             # Build user message content (supports text, images, and resource links)
             user_content = await normalize_prompt(prompt, self._session_logger)
-            # Add user message to session with content array (supports multimodal)
             # Skip if no valid content blocks were collected
             if not user_content:
                 self._session_logger.warning("Empty user content - skipping message")
                 return PromptResponse(stop_reason="error")
+
+            # Check for slash commands (only for text-only messages)
+            if len(user_content) == 1 and user_content[0].get("type") == "text":
+                text = user_content[0].get("text", "")
+                parsed = parse_slash_command(text)
+                if parsed:
+                    cmd_name, cmd_args = parsed
+                    # Find and execute the command
+                    for cmd in _SLASH_COMMANDS:
+                        if cmd["name"] == cmd_name:
+                            # Add user message to session
+                            session.add_message(
+                                {"role": "user", "content": user_content}
+                            )
+                            result = await cmd["func"](session_id, cmd_args, self)
+                            # Send response
+                            await self._conn.session_update(
+                                session_id,
+                                update_agent_message(text_block(result)),
+                            )
+                            return PromptResponse(stop_reason="end_turn")
+                    # Unknown command
+                    await self._conn.session_update(
+                        session_id,
+                        update_agent_message(
+                            text_block(
+                                f"Unknown command: /{cmd_name}. Type /help for available commands."
+                            )
+                        ),
+                    )
+                    return PromptResponse(stop_reason="end_turn")
+
+            # Add user message to session with content array (supports multimodal)
             session.add_message({"role": "user", "content": user_content})
 
             # Clear cancel event for this new prompt

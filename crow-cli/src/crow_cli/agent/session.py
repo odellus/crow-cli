@@ -345,7 +345,8 @@ class Session:
         self.session_id = other.session_id
         self.db_uri = other.db_uri
         self.cwd = other.cwd
-        self.messages = other.messages
+        # Create a new list to avoid reference issues
+        self.messages = list(other.messages)
         self.model_identifier = other.model_identifier
         self.tools = other.tools
         self.request_params = other.request_params

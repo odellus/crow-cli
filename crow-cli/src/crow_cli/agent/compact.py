@@ -139,11 +139,15 @@ async def compact(
 
     logger.info("Summary generated, shuffling data")
     orig_messages = session.messages
+    logger.info(f"Original messages count: {len(orig_messages)}")
     compacted_messages = (
         [orig_messages[1]]  # First user message (skipping system at 0)
         + [dict(role="assistant", content=middle_message)]
         + orig_messages[last_usr_msg_idx:]  # last user message is included
     )
+    logger.info(f"Compacted messages before create: {len(compacted_messages)}")
+    for i, msg in enumerate(compacted_messages):
+        logger.info(f"  [{i}] {msg.get('role')}: {str(msg.get('content', ''))[:50]}...")
 
     # Create a new session in the database with compacted messages
     new_session = Session.create(
@@ -156,6 +160,9 @@ async def compact(
         cwd=cwd,
         initial_messages=compacted_messages,
     )
+    logger.info(f"new_session.messages after create: {len(new_session.messages)}")
+    for i, msg in enumerate(new_session.messages):
+        logger.info(f"  [{i}] {msg.get('role')}: {str(msg.get('content', ''))[:50]}...")
     logger.info("Swapping out old session and new session ids for continuity")
 
     # Store the original session_id before swap
@@ -175,11 +182,17 @@ async def compact(
 
     # NOW THE KEY PART: Update the original session object in-place
     # This ensures all references (local variables in other functions) see the new state
+    logger.info(f"Before update_from: session.messages has {len(session.messages)} messages")
+    logger.info(f"new_session.messages has {len(new_session.messages)} messages")
     session.update_from(new_session)
-    logger.info("Session updated in-place - all references now see compacted state")
+    logger.info(f"After update_from: session.messages has {len(session.messages)} messages")
+    for i, msg in enumerate(session.messages):
+        logger.info(f"  [{i}] {msg.get('role')}: {str(msg.get('content', ''))[:50]}...")
+    logger.info(f"Session updated in-place - all references now see compacted state")
 
     # Callback for async task contexts where reference passing doesn't work
     if on_compact:
+        logger.info(f"Calling on_compact callback with session_id={session.session_id}")
         on_compact(session.session_id, session)
 
     return session
