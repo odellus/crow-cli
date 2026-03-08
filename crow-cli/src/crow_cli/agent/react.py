@@ -4,24 +4,11 @@ from typing import Any
 
 from acp.interfaces import Client
 from acp.schema import (
-    AgentCapabilities,
-    AgentMessageChunk,
-    AudioContentBlock,
     ClientCapabilities,
-    EmbeddedResourceContentBlock,
-    HttpMcpServer,
-    ImageContentBlock,
-    Implementation,
-    McpServerStdio,
-    ResourceContentBlock,
-    SseMcpServer,
-    TerminalToolCallContent,
-    TextContentBlock,
     ToolCallProgress,
-    ToolCallStart,
 )
 from fastmcp import Client as MCPClient
-from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError, Timeout
+from openai import APIConnectionError, APIError, AsyncOpenAI, RateLimitError
 from openai._exceptions import APITimeoutError
 
 from crow_cli.agent.compact import compact

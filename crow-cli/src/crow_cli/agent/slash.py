@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING
 
 from acp import Agent
 
+from crow_cli.agent.compact import compact
+from crow_cli.agent.llm import configure_llm
+
 # Slash command registry
 _SLASH_COMMANDS = []
 
@@ -26,8 +29,6 @@ def register_slash_command(name: str, description: str):
 )
 async def compact_command(session_id: str, args: str, agent: Agent):
     """Compact the conversation."""
-    from crow_cli.agent.compact import compact
-    from crow_cli.agent.llm import configure_llm
 
     session = agent._sessions.get(session_id)
     if not session:
@@ -100,7 +101,6 @@ async def compact_command(session_id: str, args: str, agent: Agent):
 @register_slash_command("help", "Show available slash commands")
 async def help_command(session_id: str, args: str, agent: Agent):
     """Show available slash commands."""
-    from crow_cli.agent.slash import _SLASH_COMMANDS
 
     lines = ["Available slash commands:"]
     for cmd in _SLASH_COMMANDS:
