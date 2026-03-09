@@ -8,25 +8,30 @@ This is the single agent class that combines:
 No wrapper, no nested agents - just one clean Agent(acp.Agent) implementation.
 """
 
-import sys
 import platform
+import sys
 
 # Fix for PyInstaller + asyncio stdin on Linux
 # MUST be applied BEFORE any acp imports
 if getattr(sys, "frozen", False) and platform.system() == "Linux":
     import asyncio
+
     import acp.stdio as _acp_stdio
-    
+
     async def _frozen_posix_stdio_streams(loop, limit=None):
         """Use threaded stdin feeder for frozen builds on Linux."""
-        reader = asyncio.StreamReader(limit=limit) if limit is not None else asyncio.StreamReader()
+        reader = (
+            asyncio.StreamReader(limit=limit)
+            if limit is not None
+            else asyncio.StreamReader()
+        )
         _acp_stdio._start_stdin_feeder(loop, reader)
-        
+
         write_protocol = _acp_stdio._WritePipeProtocol()
         transport = _acp_stdio._StdoutTransport()
         writer = asyncio.StreamWriter(transport, write_protocol, None, loop)
         return reader, writer
-    
+
     # Patch the function
     _acp_stdio._posix_stdio_streams = _frozen_posix_stdio_streams
 
@@ -267,7 +272,7 @@ class AcpAgent(Agent):
             agent_info=Implementation(
                 name="crow-cli",
                 title="crow-cli",
-                version="0.1.12",
+                version="0.1.14",
             ),
         )
 

@@ -183,7 +183,7 @@ class CrowClient(Client):
         """Spawn the crow-acp agent subprocess."""
         # Check if running in PyInstaller frozen build
         is_frozen = getattr(sys, "frozen", False)
-        
+
         if is_frozen:
             # For frozen builds, use the 'acp' subcommand
             proc = await asyncio.create_subprocess_exec(
@@ -205,7 +205,7 @@ class CrowClient(Client):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
             )
-        
+
         if proc.stdin is None or proc.stdout is None:
             self._console.print("[red]Agent process does not expose stdio pipes[/red]")
             raise SystemExit(1)
@@ -283,7 +283,7 @@ async def connect_client(
             client_info=Implementation(
                 name="crow-client",
                 title="Crow Client",
-                version="0.1.12",
+                version="0.1.14",
             ),
         )
         return conn
